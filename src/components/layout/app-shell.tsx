@@ -20,6 +20,8 @@ interface AppShellProps {
   isQuickCaptureOpen?: boolean;
   onOpenQuickCapture?: () => void;
   onCloseQuickCapture?: () => void;
+  mobileActiveTab?: string;
+  onSelectMobileTab?: (tab: string) => void;
 }
 
 export function AppShell({
@@ -34,9 +36,10 @@ export function AppShell({
   isQuickCaptureOpen: externalIsQuickCaptureOpen,
   onOpenQuickCapture: externalOnOpenQuickCapture,
   onCloseQuickCapture: externalOnCloseQuickCapture,
+  mobileActiveTab = "home",
+  onSelectMobileTab,
 }: AppShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
-  const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
   const [internalQuickCaptureOpen, setInternalQuickCaptureOpen] = React.useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = React.useState(false);
 
@@ -61,7 +64,7 @@ export function AppShell({
     }
   };
 
-  // Global keyboard shortcuts: 'c' for quick capture, 'k' or 'cmd+k' for command palette
+  // Keyboard shortcuts: 'C' for capture, 'Ctrl+K' for command palette
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -87,8 +90,8 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary">
-      {/* Desktop Collapsible Sidebar */}
+    <div className="flex min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-foreground">
+      {/* Desktop Sidebar (hidden on <md) */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
@@ -99,9 +102,8 @@ export function AppShell({
       />
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
+      <div className="flex flex-1 flex-col min-w-0 w-full overflow-x-hidden">
         <TopNav
-          onOpenMobileNav={() => setIsMobileNavOpen(true)}
           onOpenQuickCapture={handleOpenQuickCapture}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           searchQuery={searchQuery}
@@ -110,28 +112,27 @@ export function AppShell({
           onClearFilter={onClearFilter}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+        {/* Content Container: pb-28 on mobile leaves space for fixed bottom nav */}
+        <main className="flex-1 w-full max-w-5xl mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-7 pb-28 md:pb-10">
           {children}
         </main>
       </div>
 
-      {/* Mobile Drawer Navigation */}
+      {/* Mobile Dedicated Bottom Nav & Floating Action */}
       <MobileNav
-        isOpen={isMobileNavOpen}
-        onClose={() => setIsMobileNavOpen(false)}
         onOpenQuickCapture={handleOpenQuickCapture}
-        activeFilter={activeFilter}
-        onSelectFilter={onSelectFilter}
+        activeTab={mobileActiveTab}
+        onSelectTab={onSelectMobileTab}
       />
 
-      {/* Quick Add Resource Modal */}
+      {/* Quick Add Resource Dialog */}
       <AddResourceModal
         isOpen={isQuickCaptureOpen}
         onClose={handleCloseQuickCapture}
         onAddResource={onAddResource}
       />
 
-      {/* Global Command Palette Dialog */}
+      {/* Command Palette Dialog */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}

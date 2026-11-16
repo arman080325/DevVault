@@ -8,14 +8,21 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
-  ShieldCheck,
-  Search,
+  LayoutDashboard,
+  Bookmark,
+  Compass,
+  Layers,
+  Activity,
+  Github,
+  Youtube,
+  Instagram,
+  FileCode,
+  Globe,
+  Settings,
 } from "lucide-react";
 import { NAV_GROUPS } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -40,37 +47,36 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "relative flex flex-col border-r border-border/60 bg-card/60 backdrop-blur-md transition-all duration-300 z-30 select-none",
-        isCollapsed ? "w-16" : "w-64"
+        // Strictly hidden on mobile, visible on desktop md+
+        "hidden md:flex flex-col border-r border-border/70 bg-card/60 backdrop-blur-sm transition-all duration-200 z-30 select-none shrink-0",
+        isCollapsed ? "w-16" : "w-60"
       )}
     >
       {/* Brand Header */}
-      <div className="flex h-14 items-center justify-between px-4 border-b border-border/40">
+      <div className="flex h-13 items-center justify-between px-3.5 border-b border-border/60">
         <Link
           href="/"
           className="flex items-center gap-2.5 overflow-hidden group focus-visible:outline-none"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/40 text-primary shadow-sm group-hover:border-primary/60 transition-colors">
-            <Vault className="h-4 w-4" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-secondary text-primary border border-border/80 shadow-2xs group-hover:border-primary/50 transition-colors">
+            <Vault className="h-3.5 w-3.5" />
           </div>
           {!isCollapsed && (
-            <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
-              <span className="font-semibold text-sm tracking-tight text-foreground">
+            <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+              <span className="font-heading font-semibold text-xs tracking-tight text-foreground">
                 DevVault
               </span>
-              <span className="rounded bg-primary/10 px-1 py-0.2 text-[10px] font-mono text-primary font-medium border border-primary/20">
-                PRO
+              <span className="text-[10px] text-muted-foreground/70 font-mono">
+                workspace
               </span>
             </div>
           )}
         </Link>
 
-        {/* Collapse toggle button */}
-        <Button
-          variant="ghost"
-          size="icon-xs"
+        {/* Collapse toggle */}
+        <button
           onClick={onToggleCollapse}
-          className="hidden md:flex text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground/60 hover:text-foreground hover:bg-secondary/70 rounded p-1 transition-colors"
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
@@ -78,24 +84,24 @@ export function Sidebar({
           ) : (
             <ChevronLeft className="h-3.5 w-3.5" />
           )}
-        </Button>
+        </button>
       </div>
 
-      {/* Quick Action Button */}
-      <div className="p-3">
+      {/* Quick Capture Button */}
+      <div className="p-2.5">
         <Button
           onClick={onOpenQuickCapture}
           className={cn(
-            "w-full bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 hover:border-primary/50 shadow-sm transition-all justify-start",
+            "w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 shadow-2xs transition-all justify-start",
             isCollapsed && "justify-center px-0"
           )}
           size="sm"
         >
-          <Plus className="h-4 w-4 shrink-0" />
+          <Plus className="h-3.5 w-3.5 shrink-0" />
           {!isCollapsed && (
             <div className="flex items-center justify-between w-full ml-2">
-              <span className="font-medium text-xs">Quick Capture</span>
-              <kbd className="hidden lg:inline-flex h-4 items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1 font-mono text-[9px] text-primary">
+              <span className="font-heading text-xs font-medium">New Resource</span>
+              <kbd className="inline-flex h-4 items-center rounded border border-primary/20 bg-primary/10 px-1 font-mono text-[9px]">
                 C
               </kbd>
             </div>
@@ -103,12 +109,12 @@ export function Sidebar({
         </Button>
       </div>
 
-      {/* Navigation Groups */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
+      {/* Navigation Sections */}
+      <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-5">
         {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="space-y-1">
+          <div key={group.label} className="space-y-0.5">
             {!isCollapsed && (
-              <h4 className="px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70 mb-1.5">
+              <h4 className="px-2 text-[10px] font-heading font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">
                 {group.label}
               </h4>
             )}
@@ -133,20 +139,20 @@ export function Sidebar({
                       }
                     }}
                     className={cn(
-                      "group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                      "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors text-left",
                       isActive
-                        ? "bg-accent text-accent-foreground border border-border/80 font-semibold shadow-xs"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent",
+                        ? "bg-secondary text-foreground font-medium border border-border/80 shadow-2xs"
+                        : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground border border-transparent",
                       isCollapsed && "justify-center px-0"
                     )}
                     title={isCollapsed ? item.title : undefined}
                   >
-                    <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-105" />
+                    <Icon className="h-3.5 w-3.5 shrink-0 opacity-70 group-hover:opacity-100" />
                     {!isCollapsed && (
                       <>
-                        <span className="truncate flex-1">{item.title}</span>
+                        <span className="truncate flex-1 font-sans">{item.title}</span>
                         {item.badge && (
-                          <span className="ml-auto rounded-full bg-muted/80 px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">
+                          <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
                             {item.badge}
                           </span>
                         )}
@@ -160,16 +166,16 @@ export function Sidebar({
         ))}
       </div>
 
-      {/* User Status Footer */}
-      <div className="p-3 border-t border-border/40 bg-card/40">
+      {/* User Footer */}
+      <div className="p-2.5 border-t border-border/60 bg-card/40">
         <div
           className={cn(
-            "flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-accent/40",
+            "flex items-center gap-2 rounded-md p-1 transition-colors hover:bg-secondary/50",
             isCollapsed && "justify-center p-0"
           )}
         >
-          <Avatar className="h-7 w-7 border-border/80 ring-1 ring-primary/20">
-            <AvatarFallback className="bg-primary/20 text-primary text-[11px] font-semibold">
+          <Avatar className="h-6.5 w-6.5 border-border/80">
+            <AvatarFallback className="bg-secondary text-foreground text-[10px] font-medium font-mono">
               DV
             </AvatarFallback>
           </Avatar>
@@ -178,9 +184,9 @@ export function Sidebar({
               <span className="text-xs font-medium text-foreground truncate">
                 DevVault Architect
               </span>
-              <span className="flex items-center gap-1 text-[10px] text-emerald-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Local Vault Active
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-mono">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                Local Vault
               </span>
             </div>
           )}

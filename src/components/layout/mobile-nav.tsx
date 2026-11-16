@@ -1,150 +1,69 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
-  Vault,
-  X,
-  Plus,
-  Github,
-  Layers,
   LayoutDashboard,
   Bookmark,
   Compass,
-  Activity,
-  Settings,
+  Layers,
+  Plus,
 } from "lucide-react";
-import { NAV_GROUPS } from "@/config/navigation";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
-  isOpen: boolean;
-  onClose: () => void;
   onOpenQuickCapture: () => void;
-  activeFilter?: string | null;
-  onSelectFilter?: (filterType: "platform" | "category" | "all", value: string) => void;
+  activeTab?: string;
+  onSelectTab?: (tab: string) => void;
 }
 
 export function MobileNav({
-  isOpen,
-  onClose,
   onOpenQuickCapture,
-  activeFilter,
-  onSelectFilter,
+  activeTab = "home",
+  onSelectTab,
 }: MobileNavProps) {
-  const pathname = usePathname();
-
-  if (!isOpen) return null;
+  const tabs = [
+    { id: "home", label: "Home", icon: LayoutDashboard },
+    { id: "library", label: "Library", icon: Bookmark },
+    { id: "explore", label: "Explore", icon: Compass },
+    { id: "collections", label: "Collections", icon: Layers },
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 md:hidden">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/75 backdrop-blur-xs animate-in fade-in-0 duration-200"
-        onClick={onClose}
-      />
-
-      {/* Drawer Panel */}
-      <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-card border-r border-border/80 p-4 shadow-2xl flex flex-col justify-between animate-in slide-in-from-left duration-200">
-        <div>
-          {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-border/40">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary border border-primary/30">
-                <Vault className="h-4 w-4" />
-              </div>
-              <span className="font-semibold text-sm text-foreground">
-                DevVault
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close navigation</span>
-            </Button>
-          </div>
-
-          {/* Quick Capture Action */}
-          <div className="my-4">
-            <Button
-              onClick={() => {
-                onClose();
-                onOpenQuickCapture();
-              }}
-              className="w-full bg-primary text-primary-foreground font-medium text-xs shadow-sm justify-center"
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              <span>Capture Resource</span>
-            </Button>
-          </div>
-
-          {/* Nav Links */}
-          <div className="space-y-5 overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.label} className="space-y-1">
-                <h4 className="px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-1">
-                  {group.label}
-                </h4>
-                <div className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const isPlatform = item.href.includes("platform=");
-                    const platformKey = isPlatform
-                      ? item.href.split("platform=")[1]
-                      : null;
-                    const isActive =
-                      platformKey && activeFilter === platformKey
-                        ? true
-                        : !isPlatform && pathname === item.href;
-
-                    return (
-                      <button
-                        key={item.title}
-                        onClick={() => {
-                          if (platformKey && onSelectFilter) {
-                            onSelectFilter("platform", platformKey);
-                          }
-                          onClose();
-                        }}
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition-colors text-left",
-                          isActive
-                            ? "bg-accent text-accent-foreground border border-border/80"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </div>
-                        {item.badge && (
-                          <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">
-                            {item.badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer info */}
-        <div className="pt-3 border-t border-border/40 text-center">
-          <p className="text-[11px] text-muted-foreground/70 font-mono">
-            DevVault v0.1.0 • Personal Edition
-          </p>
-        </div>
+    <>
+      {/* Floating Action Button for Quick Capture on Mobile */}
+      <div className="fixed bottom-18 right-4 z-40 md:hidden">
+        <button
+          onClick={onOpenQuickCapture}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/30 border border-primary/30 transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          aria-label="Capture new resource"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
       </div>
-    </div>
+
+      {/* Fixed Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-14 items-center justify-around border-t border-border/70 bg-card/95 px-2 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden select-none">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onSelectTab?.(tab.id)}
+              className={cn(
+                "flex flex-col items-center justify-center flex-1 h-full py-1 text-[10px] transition-colors",
+                isActive
+                  ? "text-primary font-medium"
+                  : "text-muted-foreground/70 hover:text-foreground"
+              )}
+            >
+              <Icon className={cn("h-4 w-4 mb-0.5", isActive && "stroke-[2.2]")} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </>
   );
 }
