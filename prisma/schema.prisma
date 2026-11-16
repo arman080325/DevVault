@@ -1,0 +1,145 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Platform {
+  GITHUB
+  YOUTUBE
+  INSTAGRAM
+  WEBSITE
+  DOCS
+  DESIGN
+  ARTICLE
+  TOOL
+}
+
+enum ResourceStatus {
+  INBOX
+  SAVED
+  EXPLORING
+  COMPLETED
+  ARCHIVED
+}
+
+model User {
+  id            String             @id @default(uuid())
+  email         String             @unique
+  name          String?
+  avatarUrl     String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  resources     Resource[]
+  collections   Collection[]
+  activities    ActivityLog[]
+  settings      UserSettings?
+
+  @@map("users")
+}
+
+model Resource {
+  id            String             @id @default(uuid())
+  userId        String             @map("user_id")
+  title         String
+  description   String?
+  url           String
+  platform      Platform
+  status        ResourceStatus     @default(SAVED)
+  isPinned      Boolean            @default(false) @map("is_pinned")
+  isFavorite    Boolean            @default(false) @map("is_favorite")
+  thumbnailUrl  String?            @map("thumbnail_url")
+  faviconUrl    String?            @map("favicon_url")
+  author        String?
+  category      String             // Frontend, Backend, DevOps, Cybersecurity, UI/UX, AI/ML
+  readTimeMin   Int?               @map("read_time_min")
+  metadata      Json?              // Stars, forks, duration, likes, views
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags          ResourceTag[]
+  collections   CollectionResource[]
+
+  @@index([userId, platform])
+  @@index([userId, category])
+  @@index([userId, status])
+  @@map("resources")
+}
+
+model Tag {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  color       String?
+  resources   ResourceTag[]
+
+  @@map("tags")
+}
+
+model ResourceTag {
+  resourceId  String        @map("resource_id")
+  tagId       String        @map("tag_id")
+  resource    Resource      @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  tag         Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, tagId])
+  @@map("resource_tags")
+}
+
+model Collection {
+  id          String                @id @default(uuid())
+  userId      String                @map("user_id")
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  isPublic    Boolean               @default(false) @map("is_public")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resources   CollectionResource[]
+
+  @@index([userId])
+  @@map("collections")
+}
+
+model CollectionResource {
+  collectionId String             @map("collection_id")
+  resourceId   String             @map("resource_id")
+  collection   Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  resource     Resource           @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, resourceId])
+  @@map("collection_resources")
+}
+
+model ActivityLog {
+  id          String             @id @default(uuid())
+  userId      String             @map("user_id")
+  action      String             // CAPTURED, EXPLORED, COMPLETED, FAVORITED, PINNED
+  resourceId  String?            @map("resource_id")
+  details     Json?
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("activity_logs")
+}
+
+model UserSettings {
+  id          String             @id @default(uuid())
+  userId      String             @unique @map("user_id")
+  theme       String             @default("dark")
+  compactView Boolean            @default(false) @map("compact_view")
+  defaultView String             @default("grid") @map("default_view")
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
