@@ -48,21 +48,21 @@ export function AppShell({
       ? externalIsQuickCaptureOpen
       : internalQuickCaptureOpen;
 
-  const handleOpenQuickCapture = () => {
+  const handleOpenQuickCapture = React.useCallback(() => {
     if (externalOnOpenQuickCapture) {
       externalOnOpenQuickCapture();
     } else {
       setInternalQuickCaptureOpen(true);
     }
-  };
+  }, [externalOnOpenQuickCapture]);
 
-  const handleCloseQuickCapture = () => {
+  const handleCloseQuickCapture = React.useCallback(() => {
     if (externalOnCloseQuickCapture) {
       externalOnCloseQuickCapture();
     } else {
       setInternalQuickCaptureOpen(false);
     }
-  };
+  }, [externalOnCloseQuickCapture]);
 
   // Keyboard shortcuts: 'C' for capture, 'Ctrl+K' for command palette
   React.useEffect(() => {
@@ -87,7 +87,7 @@ export function AppShell({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [handleOpenQuickCapture]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-foreground">

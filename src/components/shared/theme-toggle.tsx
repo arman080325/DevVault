@@ -8,6 +8,18 @@ export function ThemeToggle() {
   const [theme, setTheme] = React.useState<"dark" | "light">("dark");
 
   React.useEffect(() => {
+    // Check URL param first (e.g. ?theme=light)
+    const params = new URLSearchParams(window.location.search);
+    const urlTheme = params.get("theme") as "dark" | "light" | null;
+
+    if (urlTheme === "light" || urlTheme === "dark") {
+      setTheme(urlTheme);
+      localStorage.setItem("devvault-theme", urlTheme);
+      document.documentElement.classList.toggle("light", urlTheme === "light");
+      document.documentElement.classList.toggle("dark", urlTheme === "dark");
+      return;
+    }
+
     const saved = localStorage.getItem("devvault-theme") as "dark" | "light" | null;
     if (saved) {
       setTheme(saved);

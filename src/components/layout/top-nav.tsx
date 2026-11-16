@@ -117,11 +117,11 @@ export function TopNav({
           <span className="sr-only">Search</span>
         </Button>
 
-        {/* Quick Add Resource Desktop */}
+        {/* Quick Add Resource Desktop (hidden on mobile, uses floating button) */}
         <Button
           onClick={onOpenQuickCapture}
           size="sm"
-          className="hidden sm:inline-flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs shadow-2xs"
+          className="hidden md:inline-flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs shadow-2xs"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>Capture</span>

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { StatsOverview } from "@/components/dashboard/stats-overview";
@@ -24,7 +26,10 @@ import {
 } from "@/types/resource";
 import { PLATFORM_CONFIG } from "@/config/platforms";
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const isModalParam = searchParams.get("modal") === "capture";
+
   const [resources, setResources] = React.useState<ResourceItem[]>(MOCK_RESOURCES);
   const [stats, setStats] = React.useState<ResourceStats>(MOCK_STATS);
   const [activities, setActivities] = React.useState<ActivityEvent[]>(MOCK_ACTIVITIES);
@@ -33,7 +38,13 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = React.useState<string | null>(null);
   const [statusTab, setStatusTab] = React.useState<string>("ALL");
   const [mobileTab, setMobileTab] = React.useState<string>("home");
-  const [isQuickCaptureModalOpen, setIsQuickCaptureModalOpen] = React.useState(false);
+  const [isQuickCaptureModalOpen, setIsQuickCaptureModalOpen] = React.useState(isModalParam);
+
+  React.useEffect(() => {
+    if (isModalParam) {
+      setIsQuickCaptureModalOpen(true);
+    }
+  }, [isModalParam]);
 
   // Recalculate platform stats dynamically
   const platformStats: PlatformStat[] = React.useMemo(() => {
@@ -343,5 +354,13 @@ export default function DashboardPage() {
         <RecentActivity activities={activities.slice(0, 4)} />
       </section>
     </AppShell>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -54,6 +54,28 @@ export default function RootLayout({
       className={`dark ${manrope.variable} ${dmSans.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Synchronous theme initialization to avoid flash and ensure instant theme application */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var urlParams = new URLSearchParams(window.location.search);
+                var urlTheme = urlParams.get('theme');
+                var savedTheme = localStorage.getItem('devvault-theme');
+                var theme = urlTheme || savedTheme || 'dark';
+                if (theme === 'light') {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
+                } else {
+                  document.documentElement.classList.add('dark');
+                  document.documentElement.classList.remove('light');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-foreground">
         {children}
       </body>
