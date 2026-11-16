@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { LayoutGrid, List, SearchX, BookmarkPlus } from "lucide-react";
-import { ResourceItem, ResourceStatus } from "@/types/resource";
+import { LayoutGrid, List, SearchX, ArrowUpDown } from "lucide-react";
+import { ResourceItem } from "@/types/resource";
 import { ResourceCard } from "./resource-card";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 
@@ -32,20 +31,30 @@ export function ResourceGrid({
   onStatusTabChange,
 }: ResourceGridProps) {
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = React.useState<"newest" | "title">("newest");
 
   const statusTabs: { label: string; value: string }[] = [
-    { label: "All Resources", value: "ALL" },
+    { label: "All", value: "ALL" },
     { label: "Saved", value: "SAVED" },
     { label: "Exploring", value: "EXPLORING" },
     { label: "Completed", value: "COMPLETED" },
     { label: "Inbox", value: "INBOX" },
   ];
 
+  const sortedResources = React.useMemo(() => {
+    const list = [...resources];
+    if (sortBy === "title") {
+      return list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    // Default newest (already sorted or by date)
+    return list;
+  }, [resources, sortBy]);
+
   return (
-    <div className="space-y-4">
-      {/* Controls Bar: Status Filter Tabs + View Mode Toggle */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-border/40">
-        {/* Status Tabs */}
+    <div className="space-y-3.5">
+      {/* Filter and View Switcher Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pb-2 border-b border-border/60">
+        {/* Status Filter Tabs */}
         <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
           {statusTabs.map((tab) => {
             const isActive = activeStatusTab === tab.value;
@@ -54,10 +63,10 @@ export function ResourceGrid({
                 key={tab.value}
                 onClick={() => onStatusTabChange?.(tab.value)}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap",
+                  "rounded-md px-2.5 py-1 text-xs transition-colors whitespace-nowrap",
                   isActive
-                    ? "bg-accent text-accent-foreground border border-border/80 shadow-xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                    ? "bg-secondary text-foreground font-medium border border-border/80 shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
                 )}
               >
                 {tab.label}
@@ -66,60 +75,60 @@ export function ResourceGrid({
           })}
         </div>
 
-        {/* View Mode & Count */}
-        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3">
-          <span className="text-xs text-muted-foreground font-mono">
-            Showing <strong className="text-foreground">{resources.length}</strong> items
+        {/* View mode toggle + count */}
+        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2.5">
+          <span className="text-[11px] text-muted-foreground font-mono">
+            {sortedResources.length} {sortedResources.length === 1 ? "resource" : "resources"}
           </span>
 
-          <div className="flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5">
+          <div className="flex items-center rounded-md border border-border/70 bg-card/60 p-0.5">
             <button
               onClick={() => setViewMode("grid")}
               className={cn(
-                "rounded-md p-1 transition-colors",
+                "rounded p-1 transition-colors",
                 viewMode === "grid"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-secondary text-foreground shadow-2xs"
+                  : "text-muted-foreground/60 hover:text-foreground"
               )}
               title="Grid view"
             >
-              <LayoutGrid className="h-3.5 w-3.5" />
+              <LayoutGrid className="h-3 w-3" />
             </button>
             <button
               onClick={() => setViewMode("list")}
               className={cn(
-                "rounded-md p-1 transition-colors",
+                "rounded p-1 transition-colors",
                 viewMode === "list"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-secondary text-foreground shadow-2xs"
+                  : "text-muted-foreground/60 hover:text-foreground"
               )}
-              title="Compact list view"
+              title="List view"
             >
-              <List className="h-3.5 w-3.5" />
+              <List className="h-3 w-3" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Resource Cards Display */}
-      {resources.length === 0 ? (
+      {sortedResources.length === 0 ? (
         <EmptyState
           icon={SearchX}
-          title="No resources found"
-          description="Try adjusting your search terms or filters to find what you are looking for."
-          actionLabel="Quick Capture New Resource"
+          title="No resources match this filter"
+          description="Adjust your search query, status tabs, or selected category."
+          actionLabel="Add Resource"
           onAction={onOpenQuickCapture}
         />
       ) : (
         <div
           className={cn(
-            "grid gap-3.5",
+            "grid gap-3",
             viewMode === "grid"
-              ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
               : "grid-cols-1"
           )}
         >
-          {resources.map((resource) => (
+          {sortedResources.map((resource) => (
             <ResourceCard
               key={resource.id}
               resource={resource}

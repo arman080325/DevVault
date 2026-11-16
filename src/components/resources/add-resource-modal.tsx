@@ -4,14 +4,10 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Sparkles,
   Link as LinkIcon,
-  Check,
-  FolderPlus,
-  Tag,
   Star,
   Pin,
-  Compass,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -100,7 +96,6 @@ export function AddResourceModal({
   const onSubmit = (data: ResourceFormData) => {
     setIsSubmitting(true);
 
-    // Process tags into array
     const tagArray = data.tags
       ? data.tags
           .split(",")
@@ -129,94 +124,91 @@ export function AddResourceModal({
       setIsSubmitting(false);
       reset();
       onClose();
-    }, 250);
+    }, 200);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md sm:max-w-lg">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary border border-primary/30">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <DialogTitle>Quick Capture Resource</DialogTitle>
-          </div>
-          <DialogDescription>
-            Save any developer link, video, repository, or article into your
-            vault.
+      <DialogContent className="max-w-md sm:max-w-lg p-5">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="text-sm font-heading font-semibold text-foreground">
+            Quick Capture Resource
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Save a developer resource with automatic platform detection.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 pt-1">
           {/* URL Input */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-foreground flex items-center justify-between">
-              <span>Resource URL *</span>
-              <span className="text-[10px] text-muted-foreground">
-                Platform auto-detected
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-foreground">
+                URL *
+              </label>
+              <span className="text-[10px] text-muted-foreground/70 font-mono">
+                Auto-detected
               </span>
-            </label>
+            </div>
             <div className="relative">
-              <LinkIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <LinkIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
               <Input
                 {...register("url")}
-                placeholder="https://github.com/... or https://youtu.be/..."
+                placeholder="https://..."
                 className="pl-8 text-xs font-mono"
+                autoFocus
               />
             </div>
             {errors.url && (
-              <p className="text-[11px] text-destructive">{errors.url.message}</p>
+              <p className="text-[10px] text-destructive">{errors.url.message}</p>
             )}
           </div>
 
-          {/* Title Input */}
-          <div className="space-y-1.5">
+          {/* Title */}
+          <div className="space-y-1">
             <label className="text-xs font-medium text-foreground">
               Title *
             </label>
             <Input
               {...register("title")}
-              placeholder="e.g. Modern Architecture for Distributed Caching"
+              placeholder="Descriptive resource title..."
               className="text-xs"
             />
             {errors.title && (
-              <p className="text-[11px] text-destructive">
+              <p className="text-[10px] text-destructive">
                 {errors.title.message}
               </p>
             )}
           </div>
 
-          {/* Platform and Category side-by-side */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Platform */}
-            <div className="space-y-1.5">
+          {/* Platform and Category */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-foreground">
                 Platform
               </label>
               <select
                 {...register("platform")}
-                className="flex h-9 w-full rounded-md border border-input bg-background/50 px-2.5 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex h-8.5 w-full rounded-md border border-input bg-secondary/30 px-2 text-xs text-foreground shadow-2xs focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {PLATFORMS.map((p) => (
-                  <option key={p.value} value={p.value}>
+                  <option key={p.value} value={p.value} className="bg-popover text-foreground">
                     {p.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Category */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-foreground">
                 Category
               </label>
               <select
                 {...register("category")}
-                className="flex h-9 w-full rounded-md border border-input bg-background/50 px-2.5 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex h-8.5 w-full rounded-md border border-input bg-secondary/30 px-2 text-xs text-foreground shadow-2xs focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
+                  <option key={cat} value={cat} className="bg-popover text-foreground">
                     {cat}
                   </option>
                 ))}
@@ -224,34 +216,34 @@ export function AddResourceModal({
             </div>
           </div>
 
-          {/* Description */}
-          <div className="space-y-1.5">
+          {/* Notes / Description */}
+          <div className="space-y-1">
             <label className="text-xs font-medium text-foreground">
-              Notes / Description (Optional)
+              Notes (Optional)
             </label>
             <textarea
               {...register("description")}
               rows={2}
-              placeholder="Key takeaways, why this is valuable, or architectural notes..."
-              className="flex w-full rounded-md border border-input bg-background/50 px-3 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              placeholder="Why this is valuable, architectural takeaways..."
+              className="flex w-full rounded-md border border-input bg-secondary/30 px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
             />
           </div>
 
           {/* Tags and Author */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-foreground">
                 Tags (comma separated)
               </label>
               <Input
                 {...register("tags")}
-                placeholder="React, Redis, Architecture"
+                placeholder="React, CSS, Auth"
                 className="text-xs font-mono"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-foreground">
-                Author / Channel
+                Author / Creator
               </label>
               <Input
                 {...register("author")}
@@ -261,30 +253,30 @@ export function AddResourceModal({
             </div>
           </div>
 
-          {/* Checkboxes: Pinned, Favorite */}
-          <div className="flex items-center gap-6 pt-1">
-            <label className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer select-none">
+          {/* Pinned & Favorite toggles */}
+          <div className="flex items-center gap-5 pt-0.5">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer select-none">
               <input
                 type="checkbox"
                 {...register("isPinned")}
-                className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary"
+                className="h-3.5 w-3.5 rounded border-border accent-primary"
               />
-              <Pin className="h-3 w-3 text-amber-400" />
-              <span>Pin to Dashboard</span>
+              <Pin className="h-3 w-3 text-primary" />
+              <span>Pin to top</span>
             </label>
 
-            <label className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer select-none">
               <input
                 type="checkbox"
                 {...register("isFavorite")}
-                className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary"
+                className="h-3.5 w-3.5 rounded border-border accent-primary"
               />
-              <Star className="h-3 w-3 text-rose-400" />
-              <span>Mark Favorite</span>
+              <Star className="h-3 w-3 text-primary" />
+              <span>Favorite</span>
             </label>
           </div>
 
-          <DialogFooter className="pt-3">
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
@@ -300,7 +292,7 @@ export function AddResourceModal({
               disabled={isSubmitting}
               className="bg-primary text-primary-foreground font-medium"
             >
-              {isSubmitting ? "Capturing..." : "Capture to Vault"}
+              {isSubmitting ? "Saving..." : "Save to Vault"}
             </Button>
           </DialogFooter>
         </form>
