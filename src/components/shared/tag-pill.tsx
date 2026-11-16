@@ -20,10 +20,10 @@ export function TagPill({
     <span
       onClick={isClickable ? () => onClick(tag) : undefined}
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium transition-all duration-150 select-none",
+        "inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] transition-all duration-150 select-none",
         isSelected
-          ? "bg-primary/20 text-primary border border-primary/30"
-          : "bg-muted/40 text-muted-foreground border border-border/40 hover:bg-muted/70 hover:text-foreground",
+          ? "bg-primary/20 text-foreground border border-primary/40 font-medium"
+          : "bg-secondary/50 text-muted-foreground border border-border/60 hover:bg-secondary hover:text-foreground",
         isClickable && "cursor-pointer active:scale-95",
         className
       )}

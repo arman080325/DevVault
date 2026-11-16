@@ -4,67 +4,75 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+    /* DevVault Forest Charcoal Palette (Dark Default) */
+    --background: 147 15% 8%;       /* #111714 */
+    --foreground: 120 17% 93%;      /* #E9F0E9 */
 
-    --card: 222 47% 9%;
-    --card-foreground: 210 40% 98%;
+    --card: 147 14% 11%;            /* #171F1A - Secondary surface */
+    --card-foreground: 120 17% 93%; /* #E9F0E9 */
 
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 146 15% 14%;         /* #1E2922 - Elevated surface */
+    --popover-foreground: 120 17% 93%; /* #E9F0E9 */
 
-    --primary: 199 89% 48%;
-    --primary-foreground: 222 47% 6%;
+    --elevated: 146 15% 14%;        /* #1E2922 */
+    --highlight: 140 26% 80%;       /* #B7D7C3 - Soft Accent */
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --primary: 143 28% 59%;         /* #79B28F - Strong Accent */
+    --primary-foreground: 147 15% 8%; /* #111714 */
 
-    --muted: 217 33% 14%;
-    --muted-foreground: 215 20% 65%;
+    --secondary: 146 15% 14%;       /* #1E2922 */
+    --secondary-foreground: 133 9% 67%; /* #A3B2A6 */
 
-    --accent: 217 33% 18%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 147 14% 12%;           /* #19211C */
+    --muted-foreground: 133 9% 67%; /* #A3B2A6 - Secondary text */
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 146 15% 15%;          /* #202C24 */
+    --accent-foreground: 140 26% 80%; /* #B7D7C3 */
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 199 89% 48%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 120 17% 93%;
 
-    --radius: 0.625rem;
+    --border: 142 15% 20%;          /* #2B3930 - Border */
+    --input: 142 15% 20%;           /* #2B3930 */
+    --ring: 143 28% 59%;            /* #79B28F */
+
+    --radius: 0.5rem;
   }
 
   .light {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* DevVault Warm Paper Palette (Light Mode) */
+    --background: 51 20% 94%;       /* #F4F3ED - Main background */
+    --foreground: 137 13% 14%;      /* #202923 - Primary text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 0 0% 100%;              /* #FFFFFF - Primary surface */
+    --card-foreground: 137 13% 14%; /* #202923 */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;           /* #FFFFFF */
+    --popover-foreground: 137 13% 14%; /* #202923 */
 
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    --elevated: 75 16% 92%;         /* #ECEEE6 - Secondary surface */
+    --highlight: 147 30% 27%;       /* #315B43 - Accent */
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --primary: 145 46% 26%;         /* #24613D - Strong Accent */
+    --primary-foreground: 51 20% 98%; /* #FAF9F5 */
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --secondary: 75 16% 92%;        /* #ECEEE6 */
+    --secondary-foreground: 125 5% 46%; /* #707B71 */
 
-    --accent: 210 40% 94%;
-    --accent-foreground: 222 47% 11%;
+    --muted: 75 16% 92%;           /* #ECEEE6 */
+    --muted-foreground: 125 5% 46%; /* #707B71 - Secondary text */
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 75 14% 88%;          /* #E2E5DC */
+    --accent-foreground: 145 46% 26%; /* #24613D */
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.625rem;
+    --border: 75 14% 87%;          /* #E0E3D9 - Border */
+    --input: 75 14% 87%;           /* #E0E3D9 */
+    --ring: 145 46% 26%;           /* #24613D */
+
+    --radius: 0.5rem;
   }
 }
 
@@ -74,15 +82,20 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
+    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-manrope), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Custom subtle scrollbars */
+/* Subtle, quiet scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -90,12 +103,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.25);
+  background: hsl(var(--border) / 0.8);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.4);
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 /* Respect user's motion preferences */
@@ -108,4 +121,9 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Safe area padding for mobile gesture home bars */
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }

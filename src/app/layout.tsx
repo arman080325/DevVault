@@ -1,33 +1,46 @@
 import type { Metadata, Viewport } from "next";
+import { Manrope, DM_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  weight: ["500", "600", "700"],
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  variable: "--font-ibm-plex-mono",
+  weight: ["400", "500"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "DevVault — Personal Developer Knowledge Management Platform",
+  title: "DevVault — Personal Developer Knowledge Management",
   description:
-    "Curate, organize, search, and explore high-signal developer resources across GitHub, YouTube, Instagram, and technical documentation.",
+    "An editorial, calm, high-signal personal developer knowledge workspace. Discover. Capture. Organize. Explore. Grow.",
   applicationName: "DevVault",
-  authors: [{ name: "DevVault Team" }],
-  keywords: [
-    "developer knowledge management",
-    "developer bookmarks",
-    "github",
-    "youtube",
-    "system design",
-    "cybersecurity",
-    "frontend",
-    "backend",
-  ],
+  authors: [{ name: "DevVault" }],
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/icons/icon.svg",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#090d16",
+  themeColor: "#111714",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -36,8 +49,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
+    <html
+      lang="en"
+      className={`dark ${manrope.variable} ${dmSans.variable} ${ibmPlexMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-foreground">
         {children}
       </body>
     </html>
