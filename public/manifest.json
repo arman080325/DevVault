@@ -1,0 +1,21 @@
+{
+  "name": "DevVault — Personal Developer Knowledge Management",
+  "short_name": "DevVault",
+  "description": "Unified command center for developer knowledge curation across GitHub, YouTube, Instagram, and docs.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
