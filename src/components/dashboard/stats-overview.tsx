@@ -6,94 +6,77 @@ import {
   Compass,
   Pin,
   CheckCircle2,
-  TrendingUp,
-  Flame,
 } from "lucide-react";
 import { ResourceStats } from "@/types/resource";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface StatsOverviewProps {
   stats: ResourceStats;
   onFilterClick?: (status: string) => void;
+  activeStatusTab?: string;
 }
 
-export function StatsOverview({ stats, onFilterClick }: StatsOverviewProps) {
-  const cards = [
+export function StatsOverview({
+  stats,
+  onFilterClick,
+  activeStatusTab,
+}: StatsOverviewProps) {
+  const metrics = [
     {
-      label: "Total Knowledge Vault",
+      label: "All Resources",
       value: stats.totalResources,
-      subtext: "+14% added this month",
       icon: Bookmark,
-      color: "text-primary",
-      bgColor: "bg-primary/10 border-primary/20",
       filterValue: "ALL",
+      active: activeStatusTab === "ALL",
     },
     {
-      label: "Explore Later Queue",
+      label: "In Queue",
       value: stats.exploreLaterCount,
-      subtext: "Ready for deep dive",
       icon: Compass,
-      color: "text-blue-400",
-      bgColor: "bg-blue-500/10 border-blue-500/20",
       filterValue: "EXPLORING",
+      active: activeStatusTab === "EXPLORING",
     },
     {
-      label: "Pinned Architecture Gems",
+      label: "Pinned",
       value: stats.pinnedCount,
-      subtext: "Quick-access references",
       icon: Pin,
-      color: "text-amber-400",
-      bgColor: "bg-amber-500/10 border-amber-500/20",
       filterValue: "PINNED",
+      active: activeStatusTab === "PINNED",
     },
     {
-      label: "Mastered This Week",
+      label: "Completed",
       value: stats.completedThisWeek,
-      subtext: "Completed & archived",
       icon: CheckCircle2,
-      color: "text-emerald-400",
-      bgColor: "bg-emerald-500/10 border-emerald-500/20",
       filterValue: "COMPLETED",
+      active: activeStatusTab === "COMPLETED",
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      {cards.map((item) => {
-        const Icon = item.icon;
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+      {metrics.map((m) => {
+        const Icon = m.icon;
         return (
-          <Card
-            key={item.label}
-            onClick={() => onFilterClick?.(item.filterValue)}
-            className="p-4 transition-all hover:border-border hover:shadow-md cursor-pointer group"
+          <button
+            key={m.label}
+            onClick={() => onFilterClick?.(m.filterValue)}
+            className={cn(
+              "flex flex-col items-start rounded-lg border p-3 text-left transition-all group",
+              m.active
+                ? "border-primary/50 bg-secondary/80 text-foreground shadow-2xs"
+                : "border-border/70 bg-card/60 text-muted-foreground hover:border-border hover:bg-card hover:text-foreground"
+            )}
           >
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-medium text-muted-foreground truncate">
-                {item.label}
+            <div className="flex items-center justify-between w-full mb-1">
+              <span className="text-[11px] font-sans font-medium text-muted-foreground">
+                {m.label}
               </span>
-              <div
-                className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-lg border",
-                  item.bgColor,
-                  item.color
-                )}
-              >
-                <Icon className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
-              </div>
+              <Icon className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
             </div>
-
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold tracking-tight text-foreground">
-                {item.value}
-              </span>
+            <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              {m.value}
             </div>
-
-            <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground/80">
-              <TrendingUp className="h-3 w-3 text-emerald-400" />
-              <span>{item.subtext}</span>
-            </div>
-          </Card>
+          </button>
         );
       })}
     </div>

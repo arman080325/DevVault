@@ -22,6 +22,7 @@ import {
   CategoryStat,
   ActivityEvent,
 } from "@/types/resource";
+import { PLATFORM_CONFIG } from "@/config/platforms";
 
 export default function DashboardPage() {
   const [resources, setResources] = React.useState<ResourceItem[]>(MOCK_RESOURCES);
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [selectedTag, setSelectedTag] = React.useState<string | null>(null);
   const [activeFilter, setActiveFilter] = React.useState<string | null>(null);
   const [statusTab, setStatusTab] = React.useState<string>("ALL");
+  const [mobileTab, setMobileTab] = React.useState<string>("home");
   const [isQuickCaptureModalOpen, setIsQuickCaptureModalOpen] = React.useState(false);
 
   // Recalculate platform stats dynamically
@@ -41,44 +43,45 @@ export default function DashboardPage() {
       platforms[r.platform] = (platforms[r.platform] || 0) + 1;
     });
 
-    return [
+    const list: PlatformStat[] = [
       {
         platform: "GITHUB",
         count: platforms["GITHUB"] || 0,
         percentage: total ? Math.round(((platforms["GITHUB"] || 0) / total) * 100) : 0,
-        color: "#a1a1aa",
+        color: PLATFORM_CONFIG.GITHUB.dotColor,
       },
       {
         platform: "YOUTUBE",
         count: platforms["YOUTUBE"] || 0,
         percentage: total ? Math.round(((platforms["YOUTUBE"] || 0) / total) * 100) : 0,
-        color: "#ef4444",
+        color: PLATFORM_CONFIG.YOUTUBE.dotColor,
       },
       {
         platform: "DOCS",
         count: platforms["DOCS"] || 0,
         percentage: total ? Math.round(((platforms["DOCS"] || 0) / total) * 100) : 0,
-        color: "#06b6d4",
+        color: PLATFORM_CONFIG.DOCS.dotColor,
       },
       {
         platform: "INSTAGRAM",
         count: platforms["INSTAGRAM"] || 0,
         percentage: total ? Math.round(((platforms["INSTAGRAM"] || 0) / total) * 100) : 0,
-        color: "#ec4899",
+        color: PLATFORM_CONFIG.INSTAGRAM.dotColor,
       },
       {
         platform: "WEBSITE",
         count: platforms["WEBSITE"] || 0,
         percentage: total ? Math.round(((platforms["WEBSITE"] || 0) / total) * 100) : 0,
-        color: "#10b981",
+        color: PLATFORM_CONFIG.WEBSITE.dotColor,
       },
       {
         platform: "DESIGN",
         count: platforms["DESIGN"] || 0,
         percentage: total ? Math.round(((platforms["DESIGN"] || 0) / total) * 100) : 0,
-        color: "#8b5cf6",
+        color: PLATFORM_CONFIG.DESIGN.dotColor,
       },
     ];
+    return list;
   }, [resources]);
 
   // Recalculate category stats dynamically
@@ -94,7 +97,7 @@ export default function DashboardPage() {
     }));
   }, [resources]);
 
-  // Filter resources based on search, active platform/category, tag, and status tab
+  // Filter resources based on search, active filter, tag, and status tab
   const filteredResources = React.useMemo(() => {
     return resources.filter((res) => {
       // Search query filter
@@ -110,7 +113,7 @@ export default function DashboardPage() {
         }
       }
 
-      // Active Platform or Category filter
+      // Active Platform, Category, or Pinned filter
       if (activeFilter) {
         if (
           res.platform !== activeFilter &&
@@ -160,7 +163,7 @@ export default function DashboardPage() {
       resourceTitle: newResource.title,
       platform: newResource.platform,
       timestamp: new Date().toISOString(),
-      summary: `Captured new ${newResource.platform.toLowerCase()} resource in ${newResource.category}`,
+      summary: `Captured ${newResource.platform.toLowerCase()} resource in ${newResource.category}`,
     };
     setActivities((prev) => [newActivity, ...prev]);
   };
@@ -189,7 +192,7 @@ export default function DashboardPage() {
     );
   };
 
-  // Handler: Change Status (e.g. SAVED, EXPLORING, COMPLETED)
+  // Handler: Change Status
   const handleStatusChange = (id: string, newStatus: ResourceItem["status"]) => {
     setResources((prev) =>
       prev.map((r) => {
@@ -200,7 +203,6 @@ export default function DashboardPage() {
       })
     );
 
-    // Update stats counters
     setStats((prev) => {
       const isNowCompleted = newStatus === "COMPLETED";
       return {
@@ -212,7 +214,7 @@ export default function DashboardPage() {
     });
   };
 
-  // Handler: Select Filter from sidebar, cards, or platforms
+  // Handler: Filter selection
   const handleSelectFilter = (
     type: "platform" | "category" | "all",
     value: string
@@ -232,6 +234,20 @@ export default function DashboardPage() {
     setStatusTab("ALL");
   };
 
+  // Mobile Bottom Navigation handler
+  const handleMobileTabSelect = (tab: string) => {
+    setMobileTab(tab);
+    if (tab === "home") {
+      handleClearFilter();
+    } else if (tab === "library") {
+      setStatusTab("ALL");
+    } else if (tab === "explore") {
+      setStatusTab("EXPLORING");
+    } else if (tab === "collections") {
+      setActiveFilter("PINNED");
+    }
+  };
+
   return (
     <AppShell
       resources={resources}
@@ -244,14 +260,17 @@ export default function DashboardPage() {
       isQuickCaptureOpen={isQuickCaptureModalOpen}
       onOpenQuickCapture={() => setIsQuickCaptureModalOpen(true)}
       onCloseQuickCapture={() => setIsQuickCaptureModalOpen(false)}
+      mobileActiveTab={mobileTab}
+      onSelectMobileTab={handleMobileTabSelect}
     >
-      {/* 1. Welcome & Motivational Banner */}
+      {/* 1. Compact Editorial Welcome & Quick Capture Action Bar */}
       <WelcomeBanner
         onOpenQuickCapture={() => setIsQuickCaptureModalOpen(true)}
         streakDays={stats.currentStreakDays}
+        totalCount={stats.totalResources}
       />
 
-      {/* 2. Key Metrics & Knowledge Velocity */}
+      {/* 2. Restrained Statistics Overview (Clickable Filters) */}
       <StatsOverview
         stats={stats}
         onFilterClick={(filter) => {
@@ -263,41 +282,32 @@ export default function DashboardPage() {
             setStatusTab(filter);
           }
         }}
+        activeStatusTab={activeFilter === "PINNED" ? "PINNED" : statusTab}
       />
 
-      {/* 3. Midsection: Platform Distribution + Domain Categories */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PlatformBreakdown
-          platformStats={platformStats}
-          activePlatform={activeFilter}
-          onSelectPlatform={(platform) => handleSelectFilter("platform", platform)}
-        />
+      {/* 3. Category & Platform Filtering Strip */}
+      <div className="space-y-3 pt-1">
         <CategoryExplorer
           categoryStats={categoryStats}
           activeCategory={activeFilter}
           onSelectCategory={(category) => handleSelectFilter("category", category)}
         />
-      </div>
-
-      {/* 4. Priority Queues: Explore Later Preview & Vault Activity Stream */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ExploreLaterPreview
-          resources={resources.filter((r) => r.status === "EXPLORING" || r.status === "SAVED")}
-          onStatusChange={handleStatusChange}
-          onViewAll={() => setStatusTab("EXPLORING")}
+        <PlatformBreakdown
+          platformStats={platformStats}
+          activePlatform={activeFilter}
+          onSelectPlatform={(platform) => handleSelectFilter("platform", platform)}
         />
-        <RecentActivity activities={activities.slice(0, 5)} />
       </div>
 
-      {/* 5. Resource Vault Grid with Interactive Status Tabs */}
-      <div className="space-y-4 pt-2">
+      {/* 4. Primary Resource Library Feed */}
+      <section className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold tracking-tight text-foreground">
-              Knowledge Vault Feed
+            <h2 className="text-sm font-heading font-semibold text-foreground tracking-tight">
+              Resource Feed
             </h2>
             <p className="text-xs text-muted-foreground">
-              Explore your verified technical bookmarks across platforms with real-time metadata.
+              Collected engineering references, libraries, guides and talks.
             </p>
           </div>
           {(activeFilter || selectedTag || searchQuery || statusTab !== "ALL") && (
@@ -305,7 +315,7 @@ export default function DashboardPage() {
               onClick={handleClearFilter}
               className="text-xs text-primary hover:underline font-mono"
             >
-              Reset all filters
+              Reset filter
             </button>
           )}
         </div>
@@ -321,7 +331,17 @@ export default function DashboardPage() {
           activeStatusTab={statusTab}
           onStatusTabChange={setStatusTab}
         />
-      </div>
+      </section>
+
+      {/* 5. Secondary Queue & Stream: Explore Later + Activity Timeline */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-border/60">
+        <ExploreLaterPreview
+          resources={resources.filter((r) => r.status === "EXPLORING" || r.status === "SAVED")}
+          onStatusChange={handleStatusChange}
+          onViewAll={() => setStatusTab("EXPLORING")}
+        />
+        <RecentActivity activities={activities.slice(0, 4)} />
+      </section>
     </AppShell>
   );
 }

@@ -11,7 +11,6 @@ import {
 import { ResourceItem } from "@/types/resource";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 interface ExploreLaterPreviewProps {
   resources: ResourceItem[];
@@ -24,54 +23,54 @@ export function ExploreLaterPreview({
   onStatusChange,
   onViewAll,
 }: ExploreLaterPreviewProps) {
-  const queue = resources.slice(0, 4);
+  const queue = resources.slice(0, 3);
 
   return (
     <Card className="h-full">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2.5">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Compass className="h-4 w-4 text-blue-400" />
-            <span>Explore Later Queue</span>
+          <CardTitle className="text-xs font-heading font-semibold flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground">
+            <Compass className="h-3.5 w-3.5 text-primary" />
+            <span>Explore Next Queue</span>
           </CardTitle>
           {onViewAll && (
             <button
               onClick={onViewAll}
               className="flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
             >
-              <span>View all</span>
+              <span>View all ({resources.length})</span>
               <ArrowRight className="h-3 w-3" />
             </button>
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-2.5">
+      <CardContent className="space-y-2">
         {queue.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-6">
-            Your reading queue is empty. Mark any resource as &quot;Exploring&quot; to queue it here.
+          <p className="text-xs text-muted-foreground/70 text-center py-4 font-mono">
+            Queue is clear. Mark any resource as &quot;Exploring&quot; to queue it here.
           </p>
         ) : (
           queue.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/40 p-2.5 transition-all hover:border-border hover:bg-accent/40"
+              className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-secondary/30 p-2.5 transition-colors hover:border-border hover:bg-secondary/60 group"
             >
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="rounded bg-muted/80 px-1.5 py-0.2 text-[9px] font-mono text-muted-foreground uppercase">
-                    {item.platform}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    {item.category}
-                  </span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                  <span className="capitalize">{item.platform.toLowerCase()}</span>
+                  <span>•</span>
+                  <span>{item.category}</span>
                   {item.readTimeMin && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground font-mono">
-                      <Clock className="h-2.5 w-2.5" />
-                      {item.readTimeMin}m
-                    </span>
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-0.5">
+                        <Clock className="h-2.5 w-2.5" />
+                        {item.readTimeMin}m
+                      </span>
+                    </>
                   )}
                 </div>
-                <h4 className="text-xs font-medium text-foreground truncate hover:text-primary transition-colors">
+                <h4 className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
                   <a
                     href={item.url}
                     target="_blank"
@@ -84,20 +83,18 @@ export function ExploreLaterPreview({
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
+                <button
                   onClick={() => onStatusChange?.(item.id, "COMPLETED")}
-                  title="Mark as completed"
-                  className="text-muted-foreground hover:text-emerald-400"
+                  title="Mark completed"
+                  className="rounded p-1 text-muted-foreground/60 hover:text-primary hover:bg-muted transition-colors"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                </Button>
+                </button>
                 <a
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
+                  className="rounded p-1 text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
                   title="Open resource"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
