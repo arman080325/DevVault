@@ -167,7 +167,15 @@ export function ResourceDetailDrawer({
         </header>
 
         <div className="detail-scroll">
-          <ResourceArt kind={resource.kind} large />
+          <ResourceArt
+            kind={resource.kind}
+            title={resource.title}
+            domain={resource.domain}
+            category={resource.category}
+            url={resource.url}
+            imageUrl={resource.imageUrl}
+            large
+          />
 
           <div className="detail-content">
             <div className="detail-eyebrow">

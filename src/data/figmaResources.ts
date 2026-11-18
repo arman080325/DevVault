@@ -18,6 +18,7 @@ export interface FigmaResource {
   tags?: string[];
   pinned?: boolean;
   favorite?: boolean;
+  imageUrl?: string;
 }
 
 export const INITIAL_FIGMA_RESOURCES: FigmaResource[] = [
@@ -53,6 +54,7 @@ export const INITIAL_FIGMA_RESOURCES: FigmaResource[] = [
     status: "To explore",
     collection: "UI component libraries",
     url: "https://github.com/shadcn-ui/ui",
+    imageUrl: "https://opengraph.githubassets.com/1/shadcn-ui/ui",
     notes: "Reference for accessible component primitives with Radix and Tailwind CSS.",
     tags: ["UI systems", "Components", "Tailwind", "Radix"],
     pinned: true,
@@ -69,6 +71,7 @@ export const INITIAL_FIGMA_RESOURCES: FigmaResource[] = [
     saved: "Yesterday",
     status: "To explore",
     url: "https://youtube.com/watch?v=SmE4Ow95En4",
+    imageUrl: "https://img.youtube.com/vi/SmE4Ow95En4/hqdefault.jpg",
     notes: "Deep dive into layout recalculation, composite layers, and paint triggers.",
     tags: ["Web performance", "Browser", "DOM", "Rendering"],
   },

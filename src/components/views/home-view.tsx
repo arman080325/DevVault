@@ -64,7 +64,8 @@ export function HomeView({
           <small>Instagram, YouTube, GitHub, docs or articles</small>
         </span>
         <i>
-          Save to vault <Icon name="arrow" />
+          <span className="save-label">Save to vault</span>
+          <Icon name="arrow" />
         </i>
       </button>
 
@@ -88,7 +89,15 @@ export function HomeView({
               onClick={() => onOpenResource(continueResource)}
               aria-label={`Open ${continueResource.title}`}
             >
-              <ResourceArt kind={continueResource.kind} large />
+              <ResourceArt
+                kind={continueResource.kind}
+                title={continueResource.title}
+                domain={continueResource.domain}
+                category={continueResource.category}
+                url={continueResource.url}
+                imageUrl={continueResource.imageUrl}
+                large
+              />
             </button>
             <div className="continue-copy">
               <div className="eyebrow-row">

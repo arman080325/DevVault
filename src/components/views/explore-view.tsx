@@ -74,7 +74,14 @@ export function ExploreView({
                 aria-label={`Open ${resource.title}`}
                 type="button"
               >
-                <ResourceArt kind={resource.kind} />
+                <ResourceArt
+                  kind={resource.kind}
+                  title={resource.title}
+                  domain={resource.domain}
+                  category={resource.category}
+                  url={resource.url}
+                  imageUrl={resource.imageUrl}
+                />
               </button>
 
               <button
