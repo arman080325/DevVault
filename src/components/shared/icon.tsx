@@ -3,16 +3,20 @@
 import React, { type ReactNode } from "react";
 
 export type IconName =
-  | "arrow"
   | "activity"
+  | "arrow"
+  | "bell"
   | "bookmark"
   | "check"
   | "chevron"
   | "clock"
   | "code"
   | "collection"
+  | "command"
+  | "database"
   | "design"
   | "docs"
+  | "download"
   | "explore"
   | "filter"
   | "github"
@@ -30,6 +34,9 @@ export type IconName =
   | "settings"
   | "spark"
   | "sun"
+  | "trash"
+  | "upload"
+  | "user"
   | "x"
   | "youtube";
 
@@ -43,6 +50,12 @@ export function Icon({ name, size = 18, className }: IconProps) {
   const paths: Record<IconName, ReactNode> = {
     activity: <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />,
     arrow: <path d="M5 12h14M14 6l6 6-6 6" />,
+    bell: (
+      <>
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </>
+    ),
     bookmark: <path d="M7 4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5V21l-5-3-5 3z" />,
     check: <path d="m5 12 4 4L19 6" />,
     chevron: <path d="m9 18 6-6-6-6" />,
@@ -64,6 +77,16 @@ export function Icon({ name, size = 18, className }: IconProps) {
         <path d="M8 5V3h8v2" />
       </>
     ),
+    command: (
+      <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
+    ),
+    database: (
+      <>
+        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+      </>
+    ),
     design: (
       <>
         <path d="m12 19 7-7 3 3-7 7-3-3z" />
@@ -78,6 +101,13 @@ export function Icon({ name, size = 18, className }: IconProps) {
         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
         <line x1="9" y1="7" x2="15" y2="7" />
         <line x1="9" y1="11" x2="14" y2="11" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
       </>
     ),
     explore: (
@@ -168,6 +198,25 @@ export function Icon({ name, size = 18, className }: IconProps) {
       <>
         <circle cx="12" cy="12" r="4" />
         <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+      </>
+    ),
+    trash: (
+      <>
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </>
+    ),
+    upload: (
+      <>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M20 21a8 8 0 1 0-16 0" />
       </>
     ),
     x: <path d="m6 6 12 12M18 6 6 18" />,

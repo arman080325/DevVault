@@ -6,12 +6,19 @@ import { Icon } from "@/components/shared/icon";
 
 export type NavPage = "home" | "library" | "explore" | "collections" | "activity" | "settings";
 
+export interface UserProfile {
+  name: string;
+  email: string;
+  role: string;
+}
+
 interface SidebarProps {
   page: NavPage;
   onPage: (page: NavPage) => void;
   onCapture: () => void;
   exploreCount?: number;
   onSelectCollection?: (name: string) => void;
+  userProfile?: UserProfile;
 }
 
 export function Sidebar({
@@ -20,16 +27,39 @@ export function Sidebar({
   onCapture,
   exploreCount = 7,
   onSelectCollection,
+  userProfile,
 }: SidebarProps) {
+  const displayName = userProfile?.name || "Alex Lin";
+  const displayRole = userProfile?.role || "Personal vault";
+  const initials =
+    displayName
+      .split(" ")
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "AL";
+
   return (
     <aside className="sidebar select-none">
       <button onClick={() => onPage("home")} className="text-left focus:outline-none">
         <Brand />
       </button>
 
-      <button className="sidebar-capture" onClick={onCapture} aria-label="Save a link">
-        <Icon name="plus" size={15} />
-        Save a link
+      <button
+        className="sidebar-capture"
+        onClick={onCapture}
+        aria-label="Save a link to your vault (Press C)"
+        title="Save a link (Press C)"
+      >
+        <span className="sidebar-capture-icon">
+          <Icon name="plus" size={15} />
+        </span>
+        <span className="sidebar-capture-text">Save a link</span>
+        <kbd className="sidebar-capture-kbd" aria-label="Keyboard shortcut C">
+          C
+        </kbd>
+        <span className="sidebar-capture-shimmer" aria-hidden="true" />
       </button>
 
       <nav aria-label="Main Navigation">
@@ -95,10 +125,10 @@ export function Sidebar({
 
       <div className="sidebar-bottom">
         <button className="profile" onClick={() => onPage("settings")}>
-          <span>AL</span>
+          <span>{initials}</span>
           <div>
-            <b>Alex Lin</b>
-            <small>Personal vault</small>
+            <b>{displayName}</b>
+            <small>{displayRole}</small>
           </div>
           <Icon name="chevron" size={14} />
         </button>
