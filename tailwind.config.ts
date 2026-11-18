@@ -17,6 +17,14 @@ const config: Config = {
     },
     extend: {
       colors: {
+        canvas: "var(--canvas)",
+        surface: "var(--surface)",
+        raised: "var(--raised)",
+        ink: "var(--ink)",
+        faint: "var(--faint)",
+        rule: "var(--rule)",
+        accentSoft: "var(--accent-soft)",
+        hoverColor: "var(--hover)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -60,19 +68,26 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          "Instrument Sans",
           "var(--font-dm-sans)",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
           "sans-serif",
         ],
+        serif: [
+          "Newsreader",
+          "Georgia",
+          "serif",
+        ],
         heading: [
+          "Newsreader",
           "var(--font-manrope)",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "sans-serif",
+          "Georgia",
+          "serif",
         ],
         mono: [
+          "IBM Plex Mono",
           "var(--font-ibm-plex-mono)",
           "ui-monospace",
           "SFMono-Regular",
