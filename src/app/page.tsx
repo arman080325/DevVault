@@ -205,6 +205,7 @@ function DashboardContent() {
           isOpen={isCaptureOpen}
           onClose={() => setIsCaptureOpen(false)}
           onSaveResource={handleSaveResource}
+          existingResources={resources}
         />
       )}
 
