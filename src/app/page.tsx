@@ -13,7 +13,13 @@ import { ActivityView } from "@/components/views/activity-view";
 import { SettingsView } from "@/components/views/settings-view";
 import { ResourceDetailDrawer } from "@/components/modals/resource-detail-drawer";
 import { QuickCaptureModal } from "@/components/modals/quick-capture-modal";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { Icon } from "@/components/shared/icon";
+import { authService } from "@/services/auth-service";
+import { resourceService } from "@/services/resource-service";
+import { collectionService } from "@/services/collection-service";
+import { migrationService } from "@/services/migration-service";
+import { type User, type Session } from "@supabase/supabase-js";
 import {
   INITIAL_FIGMA_RESOURCES,
   INITIAL_COLLECTIONS,
@@ -36,6 +42,17 @@ function DashboardContent() {
   const [toast, setToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
+  // Authentication & Session State (Phase 02)
+  const [authUser, setAuthUser] = React.useState<User | null>(null);
+  const [authSession, setAuthSession] = React.useState<Session | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = React.useState(false);
+  const [authModalMode, setAuthModalMode] = React.useState<"sign-in" | "sign-up">("sign-in");
+
+  // Migration State (Phase 02)
+  const [migrationAvailable, setMigrationAvailable] = React.useState(false);
+  const [isMigrating, setIsMigrating] = React.useState(false);
+  const [migrationProgress, setMigrationProgress] = React.useState({ current: 0, total: 0 });
+
   // User Profile State
   const [userProfile, setUserProfile] = React.useState<UserProfile>({
     name: "Alex Lin",
@@ -43,7 +60,7 @@ function DashboardContent() {
     role: "Personal vault",
   });
 
-  // Synchronize profile & theme from localStorage
+  // Synchronize profile & theme from localStorage and Supabase session
   React.useEffect(() => {
     try {
       const savedTheme = localStorage.getItem("devvault-theme") as "light" | "dark" | null;
@@ -60,13 +77,165 @@ function DashboardContent() {
           role: savedRole || "Personal vault",
         });
       }
+
+      // Check local cache for resources if not yet loaded
+      const localResRaw = localStorage.getItem("devvault-local-resources");
+      if (localResRaw) {
+        try {
+          const parsed = JSON.parse(localResRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setResources(parsed);
+          }
+        } catch {}
+      } else {
+        // Save initial fixtures to local storage
+        resourceService.saveLocalCache(INITIAL_FIGMA_RESOURCES);
+      }
+
+      // Check local collections
+      const localColRaw = localStorage.getItem("devvault-local-collections");
+      if (localColRaw) {
+        try {
+          const parsedCols = JSON.parse(localColRaw);
+          if (Array.isArray(parsedCols) && parsedCols.length > 0) {
+            setCollections(parsedCols);
+          }
+        } catch {}
+      } else {
+        collectionService.saveLocalCollections(INITIAL_COLLECTIONS);
+      }
     } catch {}
+
+    // Check Auth Session & listen to changes
+    const loadSessionAndData = async () => {
+      try {
+        const session = await authService.getSession();
+        setAuthSession(session);
+        setAuthUser(session?.user ?? null);
+
+        if (session?.user) {
+          // Fetch remote profile
+          const remoteProfile = await authService.getProfile(session.user.id);
+          if (remoteProfile) {
+            setUserProfile({
+              name: remoteProfile.full_name || "Alex Lin",
+              email: remoteProfile.email || session.user.email || "alex@devvault.app",
+              role: remoteProfile.role_title || "Personal vault",
+            });
+          }
+
+          // Fetch cloud resources
+          const cloudResources = await resourceService.fetchResources(session.user.id);
+          if (cloudResources.length > 0) {
+            setResources(cloudResources);
+          }
+
+          // Fetch cloud collections
+          const cloudCollections = await collectionService.fetchCollections(session.user.id);
+          if (cloudCollections.length > 0) {
+            setCollections(cloudCollections);
+          }
+
+          // Check if local data is eligible for migration
+          const detection = migrationService.detectLocalData();
+          if (detection.hasData) {
+            setMigrationAvailable(true);
+          }
+        }
+      } catch (err) {
+        console.warn("Error initializing auth state:", err);
+      }
+    };
+
+    loadSessionAndData();
+
+    // Subscribe to auth state updates
+    const unsubscribe = authService.onAuthStateChange(async (session, user) => {
+      setAuthSession(session);
+      setAuthUser(user);
+
+      if (user) {
+        const remoteProfile = await authService.getProfile(user.id);
+        if (remoteProfile) {
+          setUserProfile({
+            name: remoteProfile.full_name || "Alex Lin",
+            email: remoteProfile.email || user.email || "alex@devvault.app",
+            role: remoteProfile.role_title || "Personal vault",
+          });
+        }
+        const cloudResources = await resourceService.fetchResources(user.id);
+        if (cloudResources.length > 0) {
+          setResources(cloudResources);
+        }
+        const cloudCols = await collectionService.fetchCollections(user.id);
+        if (cloudCols.length > 0) {
+          setCollections(cloudCols);
+        }
+        const detection = migrationService.detectLocalData();
+        if (detection.hasData) {
+          setMigrationAvailable(true);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const showToast = React.useCallback((message: string) => {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 3000);
   }, []);
+
+  const handleOpenAuth = React.useCallback((mode: "sign-in" | "sign-up" = "sign-in") => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  }, []);
+
+  const handleSignOut = React.useCallback(async () => {
+    try {
+      await authService.signOut();
+      setAuthUser(null);
+      setAuthSession(null);
+      setMigrationAvailable(false);
+      showToast("Signed out of vault");
+    } catch (err) {
+      console.warn("Sign out error:", err);
+    }
+  }, [showToast]);
+
+  const handleRunMigration = React.useCallback(async () => {
+    if (!authUser) return;
+    setIsMigrating(true);
+    try {
+      const detection = migrationService.detectLocalData();
+      const res = await migrationService.migrateLocalToCloud(
+        authUser.id,
+        detection.resources.length > 0 ? detection.resources : resources,
+        collections,
+        (cur, tot) => setMigrationProgress({ current: cur, total: tot })
+      );
+
+      // Reload fresh data from PostgreSQL
+      const refreshedResources = await resourceService.fetchResources(authUser.id);
+      if (refreshedResources.length > 0) {
+        setResources(refreshedResources);
+      }
+      const refreshedCols = await collectionService.fetchCollections(authUser.id);
+      if (refreshedCols.length > 0) {
+        setCollections(refreshedCols);
+      }
+
+      setMigrationAvailable(false);
+      showToast(`Migrated ${res.migratedCount} resources to cloud vault`);
+    } catch (err) {
+      console.warn("Migration failed:", err);
+      showToast("Migration failed. Please check network.");
+    } finally {
+      setIsMigrating(false);
+    }
+  }, [authUser, resources, collections, showToast]);
 
   const handleToggleTheme = React.useCallback(() => {
     setTheme((prev) => {
@@ -85,15 +254,28 @@ function DashboardContent() {
     });
   }, []);
 
-  const handleUpdateProfile = React.useCallback((updated: UserProfile) => {
+  const handleUpdateProfile = React.useCallback(async (updated: UserProfile) => {
     setUserProfile(updated);
     try {
       localStorage.setItem("devvault-user-name", updated.name);
       localStorage.setItem("devvault-user-email", updated.email);
       localStorage.setItem("devvault-user-role", updated.role);
     } catch {}
+
+    // Persist to Supabase if authenticated
+    if (authUser) {
+      try {
+        await authService.updateProfile(authUser.id, {
+          full_name: updated.name,
+          role_title: updated.role,
+        });
+      } catch (err) {
+        console.warn("Error persisting profile update to Supabase:", err);
+      }
+    }
+
     showToast("Profile updated");
-  }, [showToast]);
+  }, [authUser, showToast]);
 
   React.useEffect(() => {
     if (isModalParam) {
@@ -125,37 +307,25 @@ function DashboardContent() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  const handleSaveResource = (newRes: Partial<FigmaResource>) => {
-    const created: FigmaResource = {
-      id: Date.now(),
-      kind: newRes.kind || "article",
-      source: newRes.source || "Web",
-      domain: newRes.domain || "example.com",
-      title: newRes.title || "Untitled resource",
-      description: newRes.description || "A captured resource.",
-      category: newRes.category || "General",
-      length: newRes.length || "5 min read",
-      saved: "Today",
-      status: (newRes.status as FigmaResource["status"]) || "To explore",
-      progress: 0,
-      url: newRes.url,
-      notes: newRes.notes,
-      tags: [newRes.category || "General"],
-    };
-
+  const handleSaveResource = async (newRes: Partial<FigmaResource>) => {
+    const created = await resourceService.createResource(authUser?.id || null, newRes);
     setResources((prev) => [created, ...prev]);
     setToast(true);
     window.setTimeout(() => setToast(false), 3200);
   };
 
-  const handleToggleStatus = (id: number) => {
+  const handleToggleStatus = async (id: number) => {
+    const target = resources.find((r) => r.id === id);
+    const nextStatus = target?.status === "Completed" ? "Exploring" : "Completed";
+    const nextProgress = target?.status === "Completed" ? 30 : 100;
+
     setResources((prev) =>
       prev.map((r) => {
         if (r.id === id) {
           const updated = {
             ...r,
-            status: (r.status === "Completed" ? "Exploring" : "Completed") as FigmaResource["status"],
-            progress: r.status === "Completed" ? 30 : 100,
+            status: nextStatus as FigmaResource["status"],
+            progress: nextProgress,
           };
           if (selectedResource?.id === id) {
             setSelectedResource(updated);
@@ -165,14 +335,22 @@ function DashboardContent() {
         return r;
       })
     );
+
+    await resourceService.updateResource(authUser?.id || null, id, {
+      status: nextStatus as FigmaResource["status"],
+      progress: nextProgress,
+      url: target?.url,
+    });
   };
 
-  const handleToggleBookmark = (id: number) => {
+  const handleToggleBookmark = async (id: number) => {
+    const target = resources.find((r) => r.id === id);
+    const isCurrentlyBookmarked = Boolean(target?.pinned || target?.favorite);
+    const next = !isCurrentlyBookmarked;
+
     setResources((prev) =>
       prev.map((r) => {
         if (r.id === id) {
-          const isCurrentlyBookmarked = Boolean(r.pinned || r.favorite);
-          const next = !isCurrentlyBookmarked;
           const updated = { ...r, pinned: next, favorite: next };
           if (selectedResource?.id === id) {
             setSelectedResource(updated);
@@ -182,9 +360,17 @@ function DashboardContent() {
         return r;
       })
     );
+
+    await resourceService.updateResource(authUser?.id || null, id, {
+      pinned: next,
+      favorite: next,
+      url: target?.url,
+    });
   };
 
-  const handleUpdateNotes = (id: number, notes: string) => {
+  const handleUpdateNotes = async (id: number, notes: string) => {
+    const target = resources.find((r) => r.id === id);
+
     setResources((prev) =>
       prev.map((r) => {
         if (r.id === id) {
@@ -197,6 +383,11 @@ function DashboardContent() {
         return r;
       })
     );
+
+    await resourceService.updateResource(authUser?.id || null, id, {
+      notes,
+      url: target?.url,
+    });
   };
 
   const handleRemoveFromQueue = (id: number) => {
@@ -262,15 +453,59 @@ function DashboardContent() {
       onTheme={handleToggleTheme}
     >
       {page === "home" && (
-        <HomeView
-          resources={resources}
-          collections={collections}
-          onCapture={() => setIsCaptureOpen(true)}
-          onOpenResource={setSelectedResource}
-          onNavigate={handleNavigate}
-          onToggleBookmark={handleToggleBookmark}
-          userProfile={userProfile}
-        />
+        <>
+          {migrationAvailable && (
+            <div className="vault-migration-banner">
+              <div className="vault-migration-icon">
+                <Icon name="upload" size={18} />
+              </div>
+              <div className="vault-migration-body">
+                <b>Local resources ready to sync</b>
+                <p>
+                  Found unsynced items in your browser storage. Import them into your PostgreSQL vault.
+                </p>
+                {isMigrating && (
+                  <div className="vault-migration-bar">
+                    <div
+                      style={{
+                        width: `${(migrationProgress.current / Math.max(migrationProgress.total, 1)) * 100}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="vault-migration-actions">
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={isMigrating}
+                  onClick={handleRunMigration}
+                >
+                  {isMigrating
+                    ? `Syncing (${migrationProgress.current}/${migrationProgress.total})...`
+                    : "Sync to Cloud"}
+                </button>
+                <button
+                  type="button"
+                  className="outline-button"
+                  disabled={isMigrating}
+                  onClick={() => setMigrationAvailable(false)}
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+          )}
+          <HomeView
+            resources={resources}
+            collections={collections}
+            onCapture={() => setIsCaptureOpen(true)}
+            onOpenResource={setSelectedResource}
+            onNavigate={handleNavigate}
+            onToggleBookmark={handleToggleBookmark}
+            userProfile={userProfile}
+          />
+        </>
       )}
 
       {page === "library" && (
@@ -317,6 +552,26 @@ function DashboardContent() {
           collectionsCount={collections.length}
           exploredCount={exploredCount}
           vaultSizeKb={vaultSizeKb}
+          isAuthenticated={Boolean(authUser)}
+          authEmail={authUser?.email || null}
+          onOpenAuth={handleOpenAuth}
+          onSignOut={handleSignOut}
+          onMigrateLocal={handleRunMigration}
+          migrationAvailable={migrationAvailable}
+          isMigrating={isMigrating}
+          migrationProgress={migrationProgress}
+        />
+      )}
+
+      {/* Authentication Modal */}
+      {isAuthModalOpen && (
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          initialMode={authModalMode}
+          onSuccess={() => {
+            showToast("Vault synchronized");
+          }}
         />
       )}
 

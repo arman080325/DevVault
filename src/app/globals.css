@@ -3898,6 +3898,163 @@ html.dark .sidebar-capture {
   }
 }
 
+/* ==========================================================================
+   Vault Migration & Cloud Sync Styles (Phase 02)
+   ========================================================================== */
+.vault-migration-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.vault-migration-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: rgba(184, 93, 57, 0.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.vault-migration-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.vault-migration-body b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 2px;
+}
+
+.vault-migration-body p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.vault-migration-bar {
+  margin-top: 8px;
+  height: 4px;
+  width: 100%;
+  max-width: 240px;
+  background-color: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.vault-migration-bar div {
+  height: 100%;
+  background-color: var(--accent);
+  transition: width 0.25s ease-out;
+}
+
+.vault-migration-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.profile-cloud-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  margin-top: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.profile-cloud-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background-color: rgba(184, 93, 57, 0.1);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.profile-cloud-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-cloud-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 2px;
+}
+
+.profile-cloud-info p {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.cloud-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cloud-status-badge.synced {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.cloud-status-badge.local {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+@media (max-width: 640px) {
+  .vault-migration-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .vault-migration-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .profile-cloud-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .profile-cloud-card button {
+    width: 100%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
