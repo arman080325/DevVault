@@ -1,70 +1,66 @@
 "use client";
 
 import * as React from "react";
-import { Sidebar } from "./sidebar";
+import { Sidebar, type NavPage } from "./sidebar";
 import { TopNav } from "./top-nav";
 import { MobileNav } from "./mobile-nav";
-import { AddResourceModal } from "@/components/resources/add-resource-modal";
-import { CommandPalette } from "@/components/dashboard/command-palette";
-import { ResourceItem } from "@/types/resource";
 
 interface AppShellProps {
   children: React.ReactNode;
-  resources: ResourceItem[];
-  onAddResource: (resource: ResourceItem) => void;
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
-  activeFilter?: string | null;
-  onSelectFilter?: (type: "platform" | "category" | "all", value: string) => void;
-  onClearFilter?: () => void;
-  isQuickCaptureOpen?: boolean;
-  onOpenQuickCapture?: () => void;
-  onCloseQuickCapture?: () => void;
-  mobileActiveTab?: string;
-  onSelectMobileTab?: (tab: string) => void;
+  page: NavPage;
+  onPage: (page: NavPage) => void;
+  onCapture: () => void;
+  onSearch: () => void;
+  exploreCount?: number;
 }
 
 export function AppShell({
   children,
-  resources,
-  onAddResource,
-  searchQuery,
-  onSearchChange,
-  activeFilter,
-  onSelectFilter,
-  onClearFilter,
-  isQuickCaptureOpen: externalIsQuickCaptureOpen,
-  onOpenQuickCapture: externalOnOpenQuickCapture,
-  onCloseQuickCapture: externalOnCloseQuickCapture,
-  mobileActiveTab = "home",
-  onSelectMobileTab,
+  page,
+  onPage,
+  onCapture,
+  onSearch,
+  exploreCount = 7,
 }: AppShellProps) {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
-  const [internalQuickCaptureOpen, setInternalQuickCaptureOpen] = React.useState(false);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState<"light" | "dark">("light");
 
-  const isQuickCaptureOpen =
-    externalIsQuickCaptureOpen !== undefined
-      ? externalIsQuickCaptureOpen
-      : internalQuickCaptureOpen;
+  // Synchronize theme with localStorage and document class
+  React.useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTheme = urlParams.get("theme") as "light" | "dark" | null;
+      const savedTheme = localStorage.getItem("devvault-theme") as "light" | "dark" | null;
+      const activeTheme = urlTheme || savedTheme || "light";
 
-  const handleOpenQuickCapture = React.useCallback(() => {
-    if (externalOnOpenQuickCapture) {
-      externalOnOpenQuickCapture();
-    } else {
-      setInternalQuickCaptureOpen(true);
-    }
-  }, [externalOnOpenQuickCapture]);
+      setTheme(activeTheme);
+      if (activeTheme === "dark") {
+        document.documentElement.classList.add("dark");
+        document.documentElement.classList.remove("light");
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.documentElement.classList.add("light");
+      }
+    } catch {}
+  }, []);
 
-  const handleCloseQuickCapture = React.useCallback(() => {
-    if (externalOnCloseQuickCapture) {
-      externalOnCloseQuickCapture();
-    } else {
-      setInternalQuickCaptureOpen(false);
-    }
-  }, [externalOnCloseQuickCapture]);
+  const handleToggleTheme = React.useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      try {
+        localStorage.setItem("devvault-theme", next);
+        if (next === "dark") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.classList.remove("light");
+        } else {
+          document.documentElement.classList.remove("dark");
+          document.documentElement.classList.add("light");
+        }
+      } catch {}
+      return next;
+    });
+  }, []);
 
-  // Keyboard shortcuts: 'C' for capture, 'Ctrl+K' for command palette
+  // Keyboard shortcuts: 'C' for capture, '⌘ K' / 'Ctrl+K' for search
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -78,69 +74,36 @@ export function AppShell({
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setIsCommandPaletteOpen((prev) => !prev);
+        onSearch();
       } else if (e.key === "c" || e.key === "C") {
         e.preventDefault();
-        handleOpenQuickCapture();
+        onCapture();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleOpenQuickCapture]);
+  }, [onSearch, onCapture]);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-foreground">
-      {/* Desktop Sidebar (hidden on <md) */}
+    <div className={`app-shell ${theme}`}>
       <Sidebar
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
-        onOpenQuickCapture={handleOpenQuickCapture}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        activeFilter={activeFilter}
-        onSelectFilter={onSelectFilter}
+        page={page}
+        onPage={onPage}
+        onCapture={onCapture}
+        exploreCount={exploreCount}
       />
-
-      {/* Main Content Area */}
-      <div className="flex flex-1 flex-col min-w-0 w-full overflow-x-hidden">
+      <div className="app-column">
         <TopNav
-          onOpenQuickCapture={handleOpenQuickCapture}
-          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-          activeFilter={activeFilter}
-          onClearFilter={onClearFilter}
+          theme={theme}
+          onTheme={handleToggleTheme}
+          onSearch={onSearch}
+          onSettings={() => onPage("settings")}
+          onActivity={() => onPage("activity")}
         />
-
-        {/* Content Container: pb-28 on mobile leaves space for fixed bottom nav */}
-        <main className="flex-1 w-full max-w-5xl mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-7 pb-28 md:pb-10">
-          {children}
-        </main>
+        <main>{children}</main>
       </div>
-
-      {/* Mobile Dedicated Bottom Nav & Floating Action */}
-      <MobileNav
-        onOpenQuickCapture={handleOpenQuickCapture}
-        activeTab={mobileActiveTab}
-        onSelectTab={onSelectMobileTab}
-      />
-
-      {/* Quick Add Resource Dialog */}
-      <AddResourceModal
-        isOpen={isQuickCaptureOpen}
-        onClose={handleCloseQuickCapture}
-        onAddResource={onAddResource}
-      />
-
-      {/* Command Palette Dialog */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-        resources={resources}
-        onSelectResource={(url) => window.open(url, "_blank")}
-        onOpenQuickCapture={handleOpenQuickCapture}
-        onSelectPlatformFilter={(p) => onSelectFilter?.("platform", p)}
-      />
+      <MobileNav page={page} onPage={onPage} onCapture={onCapture} />
     </div>
   );
 }
