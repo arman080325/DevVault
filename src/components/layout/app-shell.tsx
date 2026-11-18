@@ -12,6 +12,7 @@ interface AppShellProps {
   onCapture: () => void;
   onSearch: () => void;
   exploreCount?: number;
+  onSelectCollection?: (name: string) => void;
 }
 
 export function AppShell({
@@ -21,6 +22,7 @@ export function AppShell({
   onCapture,
   onSearch,
   exploreCount = 7,
+  onSelectCollection,
 }: AppShellProps) {
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
 
@@ -92,6 +94,7 @@ export function AppShell({
         onPage={onPage}
         onCapture={onCapture}
         exploreCount={exploreCount}
+        onSelectCollection={onSelectCollection}
       />
       <div className="app-column">
         <TopNav

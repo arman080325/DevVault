@@ -11,6 +11,7 @@ interface SidebarProps {
   onPage: (page: NavPage) => void;
   onCapture: () => void;
   exploreCount?: number;
+  onSelectCollection?: (name: string) => void;
 }
 
 export function Sidebar({
@@ -18,6 +19,7 @@ export function Sidebar({
   onPage,
   onCapture,
   exploreCount = 7,
+  onSelectCollection,
 }: SidebarProps) {
   return (
     <aside className="sidebar select-none">
@@ -77,15 +79,15 @@ export function Sidebar({
 
       <div className="sidebar-collection">
         <span>COLLECTIONS</span>
-        <button onClick={() => onPage("collections")}>
+        <button onClick={() => onSelectCollection ? onSelectCollection("Frontend") : onPage("collections")}>
           <i className="rust-dot" />
           Frontend inspiration<small>12</small>
         </button>
-        <button onClick={() => onPage("collections")}>
+        <button onClick={() => onSelectCollection ? onSelectCollection("Backend") : onPage("collections")}>
           <i className="ink-dot" />
           Backend engineering<small>28</small>
         </button>
-        <button onClick={() => onPage("collections")}>
+        <button onClick={() => onSelectCollection ? onSelectCollection("Roadmaps") : onPage("collections")}>
           <i className="sage-dot" />
           Learning roadmaps<small>9</small>
         </button>

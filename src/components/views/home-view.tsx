@@ -153,8 +153,9 @@ export function HomeView({
               <time>{resource.saved}</time>
 
               <button
-                className="row-action"
-                aria-label="Bookmark"
+                className={`row-action ${resource.pinned || resource.favorite ? "active" : ""}`}
+                aria-label={resource.pinned || resource.favorite ? "Remove bookmark" : "Bookmark resource"}
+                title={resource.pinned || resource.favorite ? "Bookmarked" : "Bookmark"}
                 onClick={() => onToggleBookmark?.(resource.id)}
               >
                 <Icon name="bookmark" />

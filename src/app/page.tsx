@@ -33,6 +33,12 @@ function DashboardContent() {
   const [isCaptureOpen, setIsCaptureOpen] = React.useState(isModalParam);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [toast, setToast] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+
+  const showToast = React.useCallback((message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(null), 3000);
+  }, []);
 
   React.useEffect(() => {
     if (isModalParam) {
@@ -56,6 +62,12 @@ function DashboardContent() {
     window.setTimeout(() => {
       document.querySelector<HTMLInputElement>(".library-search input")?.focus();
     }, 60);
+  }, []);
+
+  const handleSelectCollection = React.useCallback((name: string) => {
+    setSearchQuery(name);
+    setPage("library");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   const handleSaveResource = (newRes: Partial<FigmaResource>) => {
@@ -83,21 +95,50 @@ function DashboardContent() {
 
   const handleToggleStatus = (id: number) => {
     setResources((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: r.status === "Completed" ? "Exploring" : "Completed",
-              progress: r.status === "Completed" ? 30 : 100,
-            }
-          : r
-      )
+      prev.map((r) => {
+        if (r.id === id) {
+          const updated = {
+            ...r,
+            status: (r.status === "Completed" ? "Exploring" : "Completed") as FigmaResource["status"],
+            progress: r.status === "Completed" ? 30 : 100,
+          };
+          if (selectedResource?.id === id) {
+            setSelectedResource(updated);
+          }
+          return updated;
+        }
+        return r;
+      })
     );
   };
 
   const handleToggleBookmark = (id: number) => {
     setResources((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, pinned: !r.pinned, favorite: !r.favorite } : r))
+      prev.map((r) => {
+        if (r.id === id) {
+          const updated = { ...r, pinned: !r.pinned, favorite: !r.favorite };
+          if (selectedResource?.id === id) {
+            setSelectedResource(updated);
+          }
+          return updated;
+        }
+        return r;
+      })
+    );
+  };
+
+  const handleUpdateNotes = (id: number, notes: string) => {
+    setResources((prev) =>
+      prev.map((r) => {
+        if (r.id === id) {
+          const updated = { ...r, notes };
+          if (selectedResource?.id === id) {
+            setSelectedResource(updated);
+          }
+          return updated;
+        }
+        return r;
+      })
     );
   };
 
@@ -133,6 +174,7 @@ function DashboardContent() {
       onCapture={() => setIsCaptureOpen(true)}
       onSearch={handleOpenSearch}
       exploreCount={exploreCount}
+      onSelectCollection={handleSelectCollection}
     >
       {page === "home" && (
         <HomeView
@@ -153,6 +195,7 @@ function DashboardContent() {
           onCapture={() => setIsCaptureOpen(true)}
           onOpenResource={setSelectedResource}
           onToggleBookmark={handleToggleBookmark}
+          onToast={showToast}
         />
       )}
 
@@ -167,7 +210,7 @@ function DashboardContent() {
       {page === "collections" && (
         <CollectionsView
           collections={collections}
-          onOpenCollection={() => handleNavigate("library")}
+          onOpenCollection={(col) => handleSelectCollection(col.name)}
           onCreateCollection={(col) => setCollections((prev) => [...prev, col])}
         />
       )}
@@ -186,6 +229,7 @@ function DashboardContent() {
           }}
           onExportData={handleExportData}
           onClearData={handleClearData}
+          onToast={showToast}
         />
       )}
 
@@ -196,6 +240,8 @@ function DashboardContent() {
           onClose={() => setSelectedResource(null)}
           onToggleStatus={handleToggleStatus}
           onToggleBookmark={handleToggleBookmark}
+          onUpdateNotes={handleUpdateNotes}
+          onToast={showToast}
         />
       )}
 
@@ -209,7 +255,7 @@ function DashboardContent() {
         />
       )}
 
-      {/* Success Toast */}
+      {/* Save Resource Toast */}
       {toast && (
         <div className="save-toast" role="status" aria-live="polite">
           <span>
@@ -227,6 +273,20 @@ function DashboardContent() {
           >
             View
           </button>
+        </div>
+      )}
+
+      {/* Generic Feedback Toast */}
+      {toastMessage && (
+        <div className="save-toast" role="status" aria-live="polite">
+          <span>
+            <Icon name="check" />
+          </span>
+          <div>
+            <b>{toastMessage}</b>
+            <small>DevVault index updated</small>
+          </div>
+          <button onClick={() => setToastMessage(null)}>Dismiss</button>
         </div>
       )}
     </AppShell>

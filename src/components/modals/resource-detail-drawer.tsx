@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt } from "@/components/resources/resource-art";
 import { FigmaResource } from "@/data/figmaResources";
@@ -10,6 +10,8 @@ interface ResourceDetailDrawerProps {
   onClose: () => void;
   onToggleStatus?: (id: number) => void;
   onToggleBookmark?: (id: number) => void;
+  onUpdateNotes?: (id: number, notes: string) => void;
+  onToast?: (message: string) => void;
 }
 
 export function ResourceDetailDrawer({
@@ -17,12 +19,64 @@ export function ResourceDetailDrawer({
   onClose,
   onToggleStatus,
   onToggleBookmark,
+  onUpdateNotes,
+  onToast,
 }: ResourceDetailDrawerProps) {
   const [completed, setCompleted] = useState(resource.status === "Completed");
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [noteText, setNoteText] = useState(
+    resource.notes ||
+      "The examples are unusually clear. Return to the section on shared layout transitions when building the collection view."
+  );
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+
+  const isBookmarked = Boolean(resource.pinned || resource.favorite);
+
+  useEffect(() => {
+    setCompleted(resource.status === "Completed");
+    setNoteText(
+      resource.notes ||
+        "The examples are unusually clear. Return to the section on shared layout transitions when building the collection view."
+    );
+  }, [resource]);
+
+  // Background scroll lock & Escape listener
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
 
   const handleToggleCompleted = () => {
     setCompleted(!completed);
     onToggleStatus?.(resource.id);
+  };
+
+  const handleSaveNotes = () => {
+    onUpdateNotes?.(resource.id, noteText);
+    setIsEditingNotes(false);
+    onToast?.("Notes updated");
+  };
+
+  const handleCopyLink = () => {
+    if (resource.url) {
+      navigator.clipboard?.writeText(resource.url);
+      onToast?.("Resource URL copied");
+    } else {
+      onToast?.("No URL available for this resource");
+    }
+    setIsMoreOpen(false);
   };
 
   const getSourceShort = (kind: FigmaResource["kind"]) => {
@@ -58,19 +112,57 @@ export function ResourceDetailDrawer({
             </span>
           </div>
 
-          <div>
+          <div style={{ position: "relative" }}>
             <button
-              aria-label="Bookmark"
+              className={isBookmarked ? "active" : ""}
+              aria-label={isBookmarked ? "Remove bookmark" : "Bookmark resource"}
+              title={isBookmarked ? "Bookmarked" : "Bookmark"}
               onClick={() => onToggleBookmark?.(resource.id)}
+              type="button"
             >
               <Icon name="bookmark" />
             </button>
-            <button aria-label="More options">
+            <button
+              aria-label="More options"
+              onClick={() => setIsMoreOpen((prev) => !prev)}
+              type="button"
+            >
               <Icon name="more" />
             </button>
-            <button aria-label="Close" onClick={onClose}>
+            <button aria-label="Close" onClick={onClose} type="button">
               <Icon name="x" />
             </button>
+
+            {isMoreOpen && (
+              <div className="dropdown-popover" style={{ top: "42px", right: "30px" }} role="menu">
+                <button type="button" onClick={handleCopyLink} role="menuitem">
+                  <span>Copy URL</span>
+                  <Icon name="link" size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleBookmark?.(resource.id);
+                    setIsMoreOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  <span>{isBookmarked ? "Remove bookmark" : "Bookmark"}</span>
+                  <Icon name="bookmark" size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleToggleCompleted();
+                    setIsMoreOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  <span>{completed ? "Mark to explore" : "Mark completed"}</span>
+                  <Icon name="check" size={13} />
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -89,6 +181,7 @@ export function ResourceDetailDrawer({
             <div className="detail-actions">
               <button
                 className="open-source"
+                type="button"
                 onClick={() => {
                   if (resource.url) {
                     window.open(resource.url, "_blank", "noopener,noreferrer");
@@ -101,6 +194,7 @@ export function ResourceDetailDrawer({
               <button
                 className={completed ? "completed" : ""}
                 onClick={handleToggleCompleted}
+                type="button"
               >
                 <Icon name="check" />
                 {completed ? "Completed" : "Mark explored"}
@@ -109,11 +203,38 @@ export function ResourceDetailDrawer({
 
             <section className="detail-section">
               <span>NOTES</span>
-              <p>
-                {resource.notes ||
-                  "The examples are unusually clear. Return to the section on shared layout transitions when building the collection view."}
-              </p>
-              <button>Edit note</button>
+              {isEditingNotes ? (
+                <div className="detail-notes-edit">
+                  <textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Write personal thoughts or learnings..."
+                    autoFocus
+                  />
+                  <div className="detail-notes-actions">
+                    <button className="save-note" type="button" onClick={handleSaveNotes}>
+                      Save notes
+                    </button>
+                    <button
+                      className="cancel-note"
+                      type="button"
+                      onClick={() => {
+                        setNoteText(resource.notes || "");
+                        setIsEditingNotes(false);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p>{noteText}</p>
+                  <button type="button" onClick={() => setIsEditingNotes(true)}>
+                    Edit note
+                  </button>
+                </>
+              )}
             </section>
 
             <section className="detail-section">
