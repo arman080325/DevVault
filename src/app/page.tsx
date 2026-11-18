@@ -4,355 +4,230 @@ import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
-import { StatsOverview } from "@/components/dashboard/stats-overview";
-import { PlatformBreakdown } from "@/components/dashboard/platform-breakdown";
-import { CategoryExplorer } from "@/components/dashboard/category-explorer";
-import { ExploreLaterPreview } from "@/components/dashboard/explore-later-preview";
-import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { ResourceGrid } from "@/components/resources/resource-grid";
+import { type NavPage } from "@/components/layout/sidebar";
+import { HomeView } from "@/components/views/home-view";
+import { LibraryView } from "@/components/views/library-view";
+import { ExploreView } from "@/components/views/explore-view";
+import { CollectionsView } from "@/components/views/collections-view";
+import { ActivityView } from "@/components/views/activity-view";
+import { SettingsView } from "@/components/views/settings-view";
+import { ResourceDetailDrawer } from "@/components/modals/resource-detail-drawer";
+import { QuickCaptureModal } from "@/components/modals/quick-capture-modal";
+import { Icon } from "@/components/shared/icon";
 import {
-  MOCK_RESOURCES,
-  MOCK_STATS,
-  MOCK_CATEGORY_STATS,
-  MOCK_ACTIVITIES,
-} from "@/data/mockResources";
-import {
-  ResourceItem,
-  ResourceStats,
-  PlatformStat,
-  CategoryStat,
-  ActivityEvent,
-} from "@/types/resource";
-import { PLATFORM_CONFIG } from "@/config/platforms";
+  INITIAL_FIGMA_RESOURCES,
+  INITIAL_COLLECTIONS,
+  FigmaResource,
+  CollectionItem,
+} from "@/data/figmaResources";
 
 function DashboardContent() {
   const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab") as NavPage | null;
   const isModalParam = searchParams.get("modal") === "capture";
 
-  const [resources, setResources] = React.useState<ResourceItem[]>(MOCK_RESOURCES);
-  const [stats, setStats] = React.useState<ResourceStats>(MOCK_STATS);
-  const [activities, setActivities] = React.useState<ActivityEvent[]>(MOCK_ACTIVITIES);
+  const [page, setPage] = React.useState<NavPage>(urlTab || "home");
+  const [resources, setResources] = React.useState<FigmaResource[]>(INITIAL_FIGMA_RESOURCES);
+  const [collections, setCollections] = React.useState<CollectionItem[]>(INITIAL_COLLECTIONS);
+  const [selectedResource, setSelectedResource] = React.useState<FigmaResource | null>(null);
+  const [isCaptureOpen, setIsCaptureOpen] = React.useState(isModalParam);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedTag, setSelectedTag] = React.useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = React.useState<string | null>(null);
-  const [statusTab, setStatusTab] = React.useState<string>("ALL");
-  const [mobileTab, setMobileTab] = React.useState<string>("home");
-  const [isQuickCaptureModalOpen, setIsQuickCaptureModalOpen] = React.useState(isModalParam);
+  const [toast, setToast] = React.useState(false);
 
   React.useEffect(() => {
     if (isModalParam) {
-      setIsQuickCaptureModalOpen(true);
+      setIsCaptureOpen(true);
     }
   }, [isModalParam]);
 
-  // Recalculate platform stats dynamically
-  const platformStats: PlatformStat[] = React.useMemo(() => {
-    const total = resources.length;
-    const platforms: Record<string, number> = {};
-    resources.forEach((r) => {
-      platforms[r.platform] = (platforms[r.platform] || 0) + 1;
-    });
+  React.useEffect(() => {
+    if (urlTab) {
+      setPage(urlTab);
+    }
+  }, [urlTab]);
 
-    const list: PlatformStat[] = [
-      {
-        platform: "GITHUB",
-        count: platforms["GITHUB"] || 0,
-        percentage: total ? Math.round(((platforms["GITHUB"] || 0) / total) * 100) : 0,
-        color: PLATFORM_CONFIG.GITHUB.dotColor,
-      },
-      {
-        platform: "YOUTUBE",
-        count: platforms["YOUTUBE"] || 0,
-        percentage: total ? Math.round(((platforms["YOUTUBE"] || 0) / total) * 100) : 0,
-        color: PLATFORM_CONFIG.YOUTUBE.dotColor,
-      },
-      {
-        platform: "DOCS",
-        count: platforms["DOCS"] || 0,
-        percentage: total ? Math.round(((platforms["DOCS"] || 0) / total) * 100) : 0,
-        color: PLATFORM_CONFIG.DOCS.dotColor,
-      },
-      {
-        platform: "INSTAGRAM",
-        count: platforms["INSTAGRAM"] || 0,
-        percentage: total ? Math.round(((platforms["INSTAGRAM"] || 0) / total) * 100) : 0,
-        color: PLATFORM_CONFIG.INSTAGRAM.dotColor,
-      },
-      {
-        platform: "WEBSITE",
-        count: platforms["WEBSITE"] || 0,
-        percentage: total ? Math.round(((platforms["WEBSITE"] || 0) / total) * 100) : 0,
-        color: PLATFORM_CONFIG.WEBSITE.dotColor,
-      },
-      {
-        platform: "DESIGN",
-        count: platforms["DESIGN"] || 0,
-        percentage: total ? Math.round(((platforms["DESIGN"] || 0) / total) * 100) : 0,
-        color: PLATFORM_CONFIG.DESIGN.dotColor,
-      },
-    ];
-    return list;
-  }, [resources]);
+  const handleNavigate = React.useCallback((next: NavPage) => {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
-  // Recalculate category stats dynamically
-  const categoryStats: CategoryStat[] = React.useMemo(() => {
-    const counts: Record<string, number> = {};
-    resources.forEach((r) => {
-      counts[r.category] = (counts[r.category] || 0) + 1;
-    });
+  const handleOpenSearch = React.useCallback(() => {
+    setPage("library");
+    window.setTimeout(() => {
+      document.querySelector<HTMLInputElement>(".library-search input")?.focus();
+    }, 60);
+  }, []);
 
-    return MOCK_CATEGORY_STATS.map((c) => ({
-      ...c,
-      count: counts[c.category] || 0,
-    }));
-  }, [resources]);
-
-  // Filter resources based on search, active filter, tag, and status tab
-  const filteredResources = React.useMemo(() => {
-    return resources.filter((res) => {
-      // Search query filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = res.title.toLowerCase().includes(q);
-        const matchesDesc = res.description.toLowerCase().includes(q);
-        const matchesCategory = res.category.toLowerCase().includes(q);
-        const matchesAuthor = res.author?.toLowerCase().includes(q);
-        const matchesTag = res.tags.some((t) => t.toLowerCase().includes(q));
-        if (!matchesTitle && !matchesDesc && !matchesCategory && !matchesAuthor && !matchesTag) {
-          return false;
-        }
-      }
-
-      // Active Platform, Category, or Pinned filter
-      if (activeFilter) {
-        if (
-          res.platform !== activeFilter &&
-          res.category !== activeFilter &&
-          (activeFilter !== "PINNED" || !res.isPinned)
-        ) {
-          return false;
-        }
-      }
-
-      // Selected Tag filter
-      if (selectedTag) {
-        if (!res.tags.includes(selectedTag)) {
-          return false;
-        }
-      }
-
-      // Status Tab filter
-      if (statusTab !== "ALL") {
-        if (res.status !== statusTab) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [resources, searchQuery, activeFilter, selectedTag, statusTab]);
-
-  // Handler: Add new resource
-  const handleAddResource = (newResource: ResourceItem) => {
-    setResources((prev) => [newResource, ...prev]);
-    setStats((prev) => ({
-      ...prev,
-      totalResources: prev.totalResources + 1,
-      pinnedCount: newResource.isPinned ? prev.pinnedCount + 1 : prev.pinnedCount,
-      exploreLaterCount:
-        newResource.status === "EXPLORING"
-          ? prev.exploreLaterCount + 1
-          : prev.exploreLaterCount,
-    }));
-
-    // Prepend activity log
-    const newActivity: ActivityEvent = {
-      id: `act-${Date.now()}`,
-      type: "CAPTURED",
-      resourceId: newResource.id,
-      resourceTitle: newResource.title,
-      platform: newResource.platform,
-      timestamp: new Date().toISOString(),
-      summary: `Captured ${newResource.platform.toLowerCase()} resource in ${newResource.category}`,
+  const handleSaveResource = (newRes: Partial<FigmaResource>) => {
+    const created: FigmaResource = {
+      id: Date.now(),
+      kind: newRes.kind || "article",
+      source: newRes.source || "Web",
+      domain: newRes.domain || "example.com",
+      title: newRes.title || "Untitled resource",
+      description: newRes.description || "A captured resource.",
+      category: newRes.category || "General",
+      length: newRes.length || "5 min read",
+      saved: "Today",
+      status: (newRes.status as FigmaResource["status"]) || "To explore",
+      progress: 0,
+      url: newRes.url,
+      notes: newRes.notes,
+      tags: [newRes.category || "General"],
     };
-    setActivities((prev) => [newActivity, ...prev]);
+
+    setResources((prev) => [created, ...prev]);
+    setToast(true);
+    window.setTimeout(() => setToast(false), 3200);
   };
 
-  // Handler: Toggle Pin
-  const handleTogglePin = (id: string) => {
+  const handleToggleStatus = (id: number) => {
     setResources((prev) =>
-      prev.map((r) => {
-        if (r.id === id) {
-          const nextPinned = !r.isPinned;
-          setStats((s) => ({
-            ...s,
-            pinnedCount: nextPinned ? s.pinnedCount + 1 : Math.max(0, s.pinnedCount - 1),
-          }));
-          return { ...r, isPinned: nextPinned };
-        }
-        return r;
-      })
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: r.status === "Completed" ? "Exploring" : "Completed",
+              progress: r.status === "Completed" ? 30 : 100,
+            }
+          : r
+      )
     );
   };
 
-  // Handler: Toggle Favorite
-  const handleToggleFavorite = (id: string) => {
+  const handleToggleBookmark = (id: number) => {
     setResources((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isFavorite: !r.isFavorite } : r))
+      prev.map((r) => (r.id === id ? { ...r, pinned: !r.pinned, favorite: !r.favorite } : r))
     );
   };
 
-  // Handler: Change Status
-  const handleStatusChange = (id: string, newStatus: ResourceItem["status"]) => {
+  const handleRemoveFromQueue = (id: number) => {
     setResources((prev) =>
-      prev.map((r) => {
-        if (r.id === id) {
-          return { ...r, status: newStatus };
-        }
-        return r;
-      })
+      prev.map((r) => (r.id === id ? { ...r, status: "Completed" } : r))
     );
-
-    setStats((prev) => {
-      const isNowCompleted = newStatus === "COMPLETED";
-      return {
-        ...prev,
-        completedThisWeek: isNowCompleted
-          ? prev.completedThisWeek + 1
-          : prev.completedThisWeek,
-      };
-    });
   };
 
-  // Handler: Filter selection
-  const handleSelectFilter = (
-    type: "platform" | "category" | "all",
-    value: string
-  ) => {
-    if (activeFilter === value) {
-      setActiveFilter(null);
-    } else {
-      setActiveFilter(value);
-    }
+  const handleExportData = () => {
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify({ resources, collections }, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `devvault-backup-${new Date().toISOString().split("T")[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
   };
 
-  // Clear all filters
-  const handleClearFilter = () => {
-    setActiveFilter(null);
-    setSelectedTag(null);
-    setSearchQuery("");
-    setStatusTab("ALL");
+  const handleClearData = () => {
+    setResources([]);
+    setCollections([]);
   };
 
-  // Mobile Bottom Navigation handler
-  const handleMobileTabSelect = (tab: string) => {
-    setMobileTab(tab);
-    if (tab === "home") {
-      handleClearFilter();
-    } else if (tab === "library") {
-      setStatusTab("ALL");
-    } else if (tab === "explore") {
-      setStatusTab("EXPLORING");
-    } else if (tab === "collections") {
-      setActiveFilter("PINNED");
-    }
-  };
+  const exploreCount = resources.filter((r) => r.status !== "Completed").length;
 
   return (
     <AppShell
-      resources={resources}
-      onAddResource={handleAddResource}
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      activeFilter={activeFilter || selectedTag}
-      onSelectFilter={handleSelectFilter}
-      onClearFilter={handleClearFilter}
-      isQuickCaptureOpen={isQuickCaptureModalOpen}
-      onOpenQuickCapture={() => setIsQuickCaptureModalOpen(true)}
-      onCloseQuickCapture={() => setIsQuickCaptureModalOpen(false)}
-      mobileActiveTab={mobileTab}
-      onSelectMobileTab={handleMobileTabSelect}
+      page={page}
+      onPage={handleNavigate}
+      onCapture={() => setIsCaptureOpen(true)}
+      onSearch={handleOpenSearch}
+      exploreCount={exploreCount}
     >
-      {/* 1. Compact Editorial Welcome & Quick Capture Action Bar */}
-      <WelcomeBanner
-        onOpenQuickCapture={() => setIsQuickCaptureModalOpen(true)}
-        streakDays={stats.currentStreakDays}
-        totalCount={stats.totalResources}
-      />
-
-      {/* 2. Restrained Statistics Overview (Clickable Filters) */}
-      <StatsOverview
-        stats={stats}
-        onFilterClick={(filter) => {
-          if (filter === "ALL") {
-            handleClearFilter();
-          } else if (filter === "PINNED") {
-            setActiveFilter("PINNED");
-          } else {
-            setStatusTab(filter);
-          }
-        }}
-        activeStatusTab={activeFilter === "PINNED" ? "PINNED" : statusTab}
-      />
-
-      {/* 3. Category & Platform Filtering Strip */}
-      <div className="space-y-3 pt-1">
-        <CategoryExplorer
-          categoryStats={categoryStats}
-          activeCategory={activeFilter}
-          onSelectCategory={(category) => handleSelectFilter("category", category)}
+      {page === "home" && (
+        <HomeView
+          resources={resources}
+          collections={collections}
+          onCapture={() => setIsCaptureOpen(true)}
+          onOpenResource={setSelectedResource}
+          onNavigate={handleNavigate}
+          onToggleBookmark={handleToggleBookmark}
         />
-        <PlatformBreakdown
-          platformStats={platformStats}
-          activePlatform={activeFilter}
-          onSelectPlatform={(platform) => handleSelectFilter("platform", platform)}
-        />
-      </div>
+      )}
 
-      {/* 4. Primary Resource Library Feed */}
-      <section className="space-y-3 pt-2">
-        <div className="flex items-center justify-between">
+      {page === "library" && (
+        <LibraryView
+          resources={resources}
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          onCapture={() => setIsCaptureOpen(true)}
+          onOpenResource={setSelectedResource}
+          onToggleBookmark={handleToggleBookmark}
+        />
+      )}
+
+      {page === "explore" && (
+        <ExploreView
+          resources={resources}
+          onOpenResource={setSelectedResource}
+          onRemoveFromQueue={handleRemoveFromQueue}
+        />
+      )}
+
+      {page === "collections" && (
+        <CollectionsView
+          collections={collections}
+          onOpenCollection={() => handleNavigate("library")}
+          onCreateCollection={(col) => setCollections((prev) => [...prev, col])}
+        />
+      )}
+
+      {page === "activity" && <ActivityView />}
+
+      {page === "settings" && (
+        <SettingsView
+          theme="light"
+          onTheme={() => {
+            const isDark = document.documentElement.classList.contains("dark");
+            const next = isDark ? "light" : "dark";
+            localStorage.setItem("devvault-theme", next);
+            document.documentElement.classList.toggle("dark", next === "dark");
+            document.documentElement.classList.toggle("light", next === "light");
+          }}
+          onExportData={handleExportData}
+          onClearData={handleClearData}
+        />
+      )}
+
+      {/* Resource Detail Drawer */}
+      {selectedResource && (
+        <ResourceDetailDrawer
+          resource={selectedResource}
+          onClose={() => setSelectedResource(null)}
+          onToggleStatus={handleToggleStatus}
+          onToggleBookmark={handleToggleBookmark}
+        />
+      )}
+
+      {/* Quick Capture Modal */}
+      {isCaptureOpen && (
+        <QuickCaptureModal
+          isOpen={isCaptureOpen}
+          onClose={() => setIsCaptureOpen(false)}
+          onSaveResource={handleSaveResource}
+        />
+      )}
+
+      {/* Success Toast */}
+      {toast && (
+        <div className="save-toast" role="status" aria-live="polite">
+          <span>
+            <Icon name="check" />
+          </span>
           <div>
-            <h2 className="text-sm font-heading font-semibold text-foreground tracking-tight">
-              Resource Feed
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Collected engineering references, libraries, guides and talks.
-            </p>
+            <b>Saved to your vault</b>
+            <small>Ready whenever you are.</small>
           </div>
-          {(activeFilter || selectedTag || searchQuery || statusTab !== "ALL") && (
-            <button
-              onClick={handleClearFilter}
-              className="text-xs text-primary hover:underline font-mono"
-            >
-              Reset filter
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setToast(false);
+              handleNavigate("library");
+            }}
+          >
+            View
+          </button>
         </div>
-
-        <ResourceGrid
-          resources={filteredResources}
-          onTogglePin={handleTogglePin}
-          onToggleFavorite={handleToggleFavorite}
-          onStatusChange={handleStatusChange}
-          onSelectTag={(tag) => setSelectedTag(selectedTag === tag ? null : tag)}
-          selectedTag={selectedTag}
-          onOpenQuickCapture={() => setIsQuickCaptureModalOpen(true)}
-          activeStatusTab={statusTab}
-          onStatusTabChange={setStatusTab}
-        />
-      </section>
-
-      {/* 5. Secondary Queue & Stream: Explore Later + Activity Timeline */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-border/60">
-        <ExploreLaterPreview
-          resources={resources.filter((r) => r.status === "EXPLORING" || r.status === "SAVED")}
-          onStatusChange={handleStatusChange}
-          onViewAll={() => setStatusTab("EXPLORING")}
-        />
-        <RecentActivity activities={activities.slice(0, 4)} />
-      </section>
+      )}
     </AppShell>
   );
 }
