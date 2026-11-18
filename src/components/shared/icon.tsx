@@ -23,6 +23,7 @@ export type IconName =
   | "globe"
   | "grid"
   | "home"
+  | "info"
   | "instagram"
   | "library"
   | "link"
@@ -145,6 +146,13 @@ export function Icon({ name, size = 18, className }: IconProps) {
       <>
         <path d="m3.5 11 8.5-7 8.5 7" />
         <path d="M5.5 9.5V20h13V9.5" />
+      </>
+    ),
+    info: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" strokeWidth="2.5" />
       </>
     ),
     instagram: (
