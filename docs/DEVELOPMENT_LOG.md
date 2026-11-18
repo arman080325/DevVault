@@ -224,6 +224,67 @@ The complete product experience was authored in Figma Make and exported as an in
 9. `bc61f47 fix: complete responsive and visual refinements`
 10. `test: verify Figma implementation across viewports`
 
-### 5. Next Steps (Awaiting Owner Review & Authorization)
-- Review and approval by project owner of Phase 01.6 design migration.
-- Branch merge or continuation to Phase 02: Database architecture, Supabase integration, Prisma migrations, and real data persistence.
+### 5. Next Steps (Superseded by Phase 01.7)
+- Proceeded to Phase 01.7 for mobile Quick Capture sheet fixes, full interaction audit, and responsive stabilization.
+
+---
+
+## [Phase 01.7] — Frontend Stabilization, Mobile UX & Interaction Audit
+**Date:** November 18, 2026  
+**Status:** Completed  
+**Working Branch:** `fix/mobile-interactions-and-ui-stability`  
+**Reference Report:** `docs/PHASE_01_7_REPORT.md`  
+
+### 1. Context & Motivation
+Following the Figma Make design migration (Phase 01.6), Phase 01.7 was dedicated to rigorous frontend stabilization, responsive sheet mechanics, and ensuring every interactive element across the application functions reliably without regressions or horizontal overflows.
+
+### 2. Implementation Milestones Completed
+- [x] **Initial Inspection & Environment Diagnostic**:
+  - Confirmed active branch `fix/mobile-interactions-and-ui-stability`.
+  - Investigated port 3000 vs 3001; identified port 3000 as authoritative Next.js dev server and terminated orphaned background tasks.
+- [x] **Mobile Quick Capture Sheet Overhaul**:
+  - Built ergonomic bottom sheet with `max-h-[92dvh]`, dynamic viewport height bounds, and touch handle indicator.
+  - Created independent scrollable body (`overflow-y-auto`) with fixed sticky header and sticky footer actions.
+  - Implemented safe-area insets (`env(safe-area-inset-bottom)`) and background scroll lock (`overflow: hidden` on document body).
+  - Added dynamic URL metadata extraction (`deriveMetadata()`) and duplicate URL detection banner (`.duplicate-warning`).
+  - Added keyboard accessibility: Escape to dismiss, `⌘ ↵` / `Ctrl+Enter` to save, auto-focus on URL input.
+- [x] **Complete Interaction & State Audit**:
+  - **Sidebar & Shell**: Fixed collection filter navigation linking directly to Library filtered state; fixed mobile bottom navigation active indicators.
+  - **Library View**: Repaired sort dropdown (`Recent`, `Oldest`, `Title`, `Source`); implemented "More" filter options (`Instagram`, `Design`, `Tools`); synchronized bookmark/favorite active state.
+  - **Resource Detail Drawer**: Made notes field fully editable with persistence to application state; fixed tag removal and shelf assignment.
+  - **Collections View**: Enabled direct click-through from curated shelves into filtered Library view.
+  - **Settings View**: Wired profile editing, JSON vault export, and delete vault confirmation modal.
+  - **Keyboard Shortcuts**: Verified `C` (quick capture), `Escape` (dismiss modals/drawers), `⌘K` / `Ctrl+K` (global search).
+- [x] **Zero-Overflow Responsive Engineering**:
+  - Eliminated horizontal scroll across all tested viewports down to 360px wide (`document.documentElement.scrollWidth === innerWidth`).
+- [x] **Automated Regression Test Suite**:
+  - Authored and executed CDP-based test runner (`scripts/verify-interactions.js`) executing 51 automated checks across 9 viewports and User Flows A through F.
+  - **Result: 51/51 checks PASSED (100.0% pass rate).**
+- [x] **Build & Static Analysis QA**:
+  - TypeScript strict check: 0 errors (`npx tsc --noEmit`).
+  - ESLint check: 0 warnings, 0 errors (`npm run lint`).
+  - Next.js production build: 100% compiled static routes without warnings (`npm run build`).
+
+### 3. Verification Test Matrix Summary
+| Category / Flow | Checks | Result | Details |
+|---|:---:|:---:|---|
+| **Zero-Overflow Audit** (9 Viewports) | 9 | Pass | 360px to 1440px all return 0px horizontal overflow |
+| **Flow A**: Quick Capture & Duplicate Detection | 11 | Pass | Dynamic preview, duplicate badge, save toast, state sync |
+| **Flow B**: Library Search, Filters & Sorting | 12 | Pass | Keyword query, clear search, platform pills, sort order |
+| **Flow C**: Bookmark / Favorite Toggle | 4 | Pass | In-place toggle, active visual styling, persistent state |
+| **Flow D**: Resource Detail Drawer | 6 | Pass | Open drawer, edit notes, mark explored toggle, close |
+| **Flow E**: Collections & Navigation | 4 | Pass | Collection card click navigates to filtered library |
+| **Flow F**: Settings & Keyboard Shortcuts | 5 | Pass | Escape key, shortcut modal trigger, export JSON action |
+| **TOTAL** | **51** | **51 / 51 PASSED (100%)** | **Zero failures, zero regressions** |
+
+### 4. Git Commits in Phase 01.7
+1. `a6e7a10 fix: repair responsive quick capture sheet`
+2. `255281d fix: restore broken navigation and button interactions`
+3. `27931a4 fix: improve mobile layout and safe area handling`
+4. `544e04f fix: resolve resource state synchronization`
+5. `6d78615 test: add frontend interaction regression coverage`
+6. `docs: update frontend stabilization report and development log`
+
+### 5. Next Steps (Ready for Phase 02)
+- System is stabilized, tested, and ready for owner review.
+- Proceed to Phase 02: Database & Backend Architecture (Supabase, PostgreSQL, Prisma ORM, real authentication, and persistent CRUD).

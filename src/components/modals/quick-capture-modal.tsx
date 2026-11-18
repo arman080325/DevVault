@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt, ResourceKind } from "@/components/resources/resource-art";
 import { FigmaResource } from "@/data/figmaResources";
@@ -133,6 +133,30 @@ export function QuickCaptureModal({
 
   const detectedKind = detectKind(url);
 
+  const handleSave = useCallback(() => {
+    setState("saving");
+    setTimeout(() => {
+      setState("saved");
+      setTimeout(() => {
+        onSaveResource({
+          kind: detectedKind,
+          url,
+          title: metadata.title,
+          description: metadata.description,
+          domain: metadata.domain,
+          source: detectedKind.charAt(0).toUpperCase() + detectedKind.slice(1),
+          category,
+          status,
+          notes: note,
+          saved: "Today",
+          length: detectedKind === "video" ? "15 min watch" : "8 min read",
+        });
+        setState("ready");
+        onClose();
+      }, 700);
+    }, 500);
+  }, [detectedKind, url, metadata, category, status, note, onSaveResource, onClose]);
+
   // Background scroll lock and keyboard shortcuts
   useEffect(() => {
     if (!isOpen) return;
@@ -156,33 +180,9 @@ export function QuickCaptureModal({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose, url, state]);
+  }, [isOpen, onClose, url, state, handleSave]);
 
   if (!isOpen) return null;
-
-  const handleSave = () => {
-    setState("saving");
-    setTimeout(() => {
-      setState("saved");
-      setTimeout(() => {
-        onSaveResource({
-          kind: detectedKind,
-          url,
-          title: metadata.title,
-          description: metadata.description,
-          domain: metadata.domain,
-          source: detectedKind.charAt(0).toUpperCase() + detectedKind.slice(1),
-          category,
-          status,
-          notes: note,
-          saved: "Today",
-          length: detectedKind === "video" ? "15 min watch" : "8 min read",
-        });
-        setState("ready");
-        onClose();
-      }, 700);
-    }, 500);
-  };
 
   return (
     <div className="capture-layer" role="dialog" aria-modal="true" aria-label="Quick capture">
