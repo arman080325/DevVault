@@ -1,9 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt, ResourceKind } from "@/components/resources/resource-art";
 import { FigmaResource } from "@/data/figmaResources";
+
+export const CANONICAL_CATEGORIES = [
+  "Frontend",
+  "Backend",
+  "Cybersecurity",
+  "Databases",
+  "DevOps & Cloud",
+  "UI/UX & Design",
+  "Tools",
+  "Animation",
+  "Other",
+] as const;
+
+export const CANONICAL_STATUSES: { value: "To explore" | "Exploring" | "Completed"; label: string }[] = [
+  { value: "To explore", label: "To Explore" },
+  { value: "Exploring", label: "Exploring" },
+  { value: "Completed", label: "Explored" },
+];
 
 interface QuickCaptureModalProps {
   isOpen: boolean;
@@ -104,10 +122,16 @@ export function QuickCaptureModal({
   existingResources = [],
 }: QuickCaptureModalProps) {
   const [url, setUrl] = useState("https://motion.dev/docs/react-layout-animations");
-  const [category, setCategory] = useState("Animation");
+  const [category, setCategory] = useState<string>("Animation");
   const [status, setStatus] = useState<"To explore" | "Exploring" | "Completed">("To explore");
   const [note, setNote] = useState("");
   const [state, setState] = useState<"ready" | "saving" | "saved">("ready");
+
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
 
   const metadata = useMemo(() => deriveMetadata(url), [url]);
 
@@ -157,6 +181,22 @@ export function QuickCaptureModal({
     }, 500);
   }, [detectedKind, url, metadata, category, status, note, onSaveResource, onClose]);
 
+  // Handle outside click to dismiss dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (categoryRef.current && !categoryRef.current.contains(event.target as Node)) {
+        setIsCategoryOpen(false);
+      }
+      if (statusRef.current && !statusRef.current.contains(event.target as Node)) {
+        setIsStatusOpen(false);
+      }
+    }
+    if (isCategoryOpen || isStatusOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isCategoryOpen, isStatusOpen]);
+
   // Background scroll lock and keyboard shortcuts
   useEffect(() => {
     if (!isOpen) return;
@@ -166,6 +206,12 @@ export function QuickCaptureModal({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (isCategoryOpen || isStatusOpen) {
+          e.stopPropagation();
+          setIsCategoryOpen(false);
+          setIsStatusOpen(false);
+          return;
+        }
         onClose();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -180,9 +226,12 @@ export function QuickCaptureModal({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose, url, state, handleSave]);
+  }, [isOpen, onClose, url, state, handleSave, isCategoryOpen, isStatusOpen]);
 
   if (!isOpen) return null;
+
+  const currentStatusLabel =
+    CANONICAL_STATUSES.find((s) => s.value === status)?.label || status;
 
   return (
     <div className="capture-layer" role="dialog" aria-modal="true" aria-label="Quick capture">
@@ -192,10 +241,10 @@ export function QuickCaptureModal({
           <div className="sheet-handle" />
           <header className="capture-head">
             <div>
-              <span>QUICK CAPTURE</span>
+              <span className="capture-eyebrow">QUICK CAPTURE</span>
               <h2>{state === "saved" ? "Saved to your vault." : "Save a discovery"}</h2>
             </div>
-            <button onClick={onClose} aria-label="Close">
+            <button onClick={onClose} aria-label="Close" type="button">
               <Icon name="x" />
             </button>
           </header>
@@ -208,7 +257,7 @@ export function QuickCaptureModal({
                 <Icon name="check" size={25} />
               </span>
               <p>{metadata.title}</p>
-              <small>Added to {category} · {status}</small>
+              <small>Added to {category} · {currentStatusLabel}</small>
             </div>
           </div>
         ) : (
@@ -250,46 +299,144 @@ export function QuickCaptureModal({
               </div>
 
               <div className="capture-preview">
-                <ResourceArt kind={detectedKind} />
+                <ResourceArt
+                  kind={detectedKind}
+                  title={metadata.title}
+                  domain={metadata.domain}
+                  category={category}
+                  url={url}
+                />
                 <div>
-                  <span>{metadata.domain}</span>
+                  <span className="capture-preview-domain">{metadata.domain}</span>
                   <h3>{metadata.title}</h3>
                   <p>{metadata.description}</p>
                 </div>
               </div>
 
               <div className="capture-fields">
-                <label>
-                  <span>Category</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const categories = ["Animation", "UI systems", "Web performance", "CSS", "React", "Tools"];
-                      const next = categories[(categories.indexOf(category) + 1) % categories.length];
-                      setCategory(next);
-                    }}
-                  >
-                    {category} <Icon name="chevron" size={14} />
-                  </button>
-                </label>
+                {/* Category Dropdown */}
+                <div className="capture-field-group" ref={categoryRef}>
+                  <label htmlFor="category-select-trigger" className="capture-field-label">
+                    Category
+                  </label>
+                  <div className="capture-dropdown-wrap">
+                    <button
+                      id="category-select-trigger"
+                      type="button"
+                      className="capture-dropdown-trigger"
+                      aria-haspopup="listbox"
+                      aria-expanded={isCategoryOpen}
+                      onClick={() => {
+                        setIsCategoryOpen((prev) => !prev);
+                        setIsStatusOpen(false);
+                      }}
+                    >
+                      <span className="trigger-value">{category}</span>
+                      <Icon
+                        name="chevron"
+                        size={14}
+                        className={`trigger-chevron ${isCategoryOpen ? "rotate" : ""}`}
+                      />
+                    </button>
 
-                <label>
-                  <span>Status</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const statuses: ("To explore" | "Exploring" | "Completed")[] = [
-                        "To explore",
-                        "Exploring",
-                        "Completed",
-                      ];
-                      const next = statuses[(statuses.indexOf(status) + 1) % statuses.length];
-                      setStatus(next);
-                    }}
-                  >
-                    {status} <Icon name="chevron" size={14} />
-                  </button>
-                </label>
+                    {isCategoryOpen && (
+                      <ul
+                        className="capture-dropdown-menu"
+                        role="listbox"
+                        aria-label="Select Category"
+                      >
+                        {CANONICAL_CATEGORIES.map((cat) => {
+                          const isSelected = category === cat;
+                          return (
+                            <li
+                              key={cat}
+                              role="option"
+                              aria-selected={isSelected}
+                              tabIndex={0}
+                              className={`capture-dropdown-item ${isSelected ? "selected" : ""}`}
+                              onClick={() => {
+                                setCategory(cat);
+                                setIsCategoryOpen(false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setCategory(cat);
+                                  setIsCategoryOpen(false);
+                                }
+                              }}
+                            >
+                              <span>{cat}</span>
+                              {isSelected && <Icon name="check" size={14} />}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Dropdown */}
+                <div className="capture-field-group" ref={statusRef}>
+                  <label htmlFor="status-select-trigger" className="capture-field-label">
+                    Status
+                  </label>
+                  <div className="capture-dropdown-wrap">
+                    <button
+                      id="status-select-trigger"
+                      type="button"
+                      className="capture-dropdown-trigger"
+                      aria-haspopup="listbox"
+                      aria-expanded={isStatusOpen}
+                      onClick={() => {
+                        setIsStatusOpen((prev) => !prev);
+                        setIsCategoryOpen(false);
+                      }}
+                    >
+                      <span className="trigger-value">{currentStatusLabel}</span>
+                      <Icon
+                        name="chevron"
+                        size={14}
+                        className={`trigger-chevron ${isStatusOpen ? "rotate" : ""}`}
+                      />
+                    </button>
+
+                    {isStatusOpen && (
+                      <ul
+                        className="capture-dropdown-menu"
+                        role="listbox"
+                        aria-label="Select Status"
+                      >
+                        {CANONICAL_STATUSES.map((st) => {
+                          const isSelected = status === st.value;
+                          return (
+                            <li
+                              key={st.value}
+                              role="option"
+                              aria-selected={isSelected}
+                              tabIndex={0}
+                              className={`capture-dropdown-item ${isSelected ? "selected" : ""}`}
+                              onClick={() => {
+                                setStatus(st.value);
+                                setIsStatusOpen(false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setStatus(st.value);
+                                  setIsStatusOpen(false);
+                                }
+                              }}
+                            >
+                              <span>{st.label}</span>
+                              {isSelected && <Icon name="check" size={14} />}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <label className="capture-note">
