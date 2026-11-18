@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt } from "@/components/resources/resource-art";
 import { FigmaResource } from "@/data/figmaResources";
@@ -16,10 +16,13 @@ export function ExploreView({
   onOpenResource,
   onRemoveFromQueue,
 }: ExploreViewProps) {
-  const [queue, setQueue] = useState(
-    resources.filter((resource) => resource.status !== "Completed")
-  );
   const [focus, setFocus] = useState<"All" | "Short reads" | "Watch">("All");
+
+  // Derive queue synchronously from parent resources
+  const queue = useMemo(
+    () => resources.filter((resource) => resource.status !== "Completed"),
+    [resources]
+  );
 
   const visible = queue.filter((resource) => {
     if (focus === "Watch") return resource.length.includes("watch");
@@ -28,7 +31,6 @@ export function ExploreView({
   });
 
   const handleRemove = (id: number) => {
-    setQueue((items) => items.filter((item) => item.id !== id));
     onRemoveFromQueue?.(id);
   };
 
@@ -51,6 +53,7 @@ export function ExploreView({
               key={item}
               role="tab"
               aria-selected={focus === item}
+              type="button"
             >
               {item}
             </button>
@@ -69,14 +72,16 @@ export function ExploreView({
                 className="queue-art"
                 onClick={() => onOpenResource(resource)}
                 aria-label={`Open ${resource.title}`}
+                type="button"
               >
                 <ResourceArt kind={resource.kind} />
               </button>
 
               <button
-                className="queue-copy"
+                className="queue-copy text-left"
                 onClick={() => onOpenResource(resource)}
                 aria-label={resource.title}
+                type="button"
               >
                 <span>
                   {resource.source} / {resource.length}
@@ -89,10 +94,13 @@ export function ExploreView({
                 <button
                   className="queue-open"
                   onClick={() => onOpenResource(resource)}
+                  type="button"
                 >
                   Start exploring <Icon name="arrow" size={15} />
                 </button>
-                <button onClick={() => handleRemove(resource.id)}>Remove</button>
+                <button onClick={() => handleRemove(resource.id)} type="button">
+                  Remove
+                </button>
               </div>
             </article>
           ))}

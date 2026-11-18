@@ -11,11 +11,10 @@ interface CollectionsViewProps {
 }
 
 export function CollectionsView({
-  collections: initialCollections,
+  collections,
   onOpenCollection,
   onCreateCollection,
 }: CollectionsViewProps) {
-  const [collections, setCollections] = useState<CollectionItem[]>(initialCollections);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
 
@@ -30,7 +29,6 @@ export function CollectionsView({
       tone: "paper",
     };
 
-    setCollections((prev) => [...prev, newCol]);
     onCreateCollection?.(newCol);
     setName("");
     setCreating(false);
@@ -48,6 +46,7 @@ export function CollectionsView({
           className="library-add"
           onClick={() => setCreating(true)}
           aria-label="New collection"
+          type="button"
         >
           <Icon name="plus" /> New collection
         </button>
@@ -60,6 +59,7 @@ export function CollectionsView({
             key={collection.name}
             onClick={() => onOpenCollection?.(collection)}
             aria-label={`Open ${collection.name}`}
+            type="button"
           >
             <div>
               <span>{String(index + 1).padStart(2, "0")}</span>
@@ -80,6 +80,7 @@ export function CollectionsView({
             className="capture-backdrop"
             onClick={() => setCreating(false)}
             aria-label="Close dialog"
+            type="button"
           />
           <form className="mini-modal" onSubmit={handleCreate}>
             <span className="date-label">NEW SHELF</span>
@@ -95,7 +96,7 @@ export function CollectionsView({
               <button type="button" onClick={() => setCreating(false)}>
                 Cancel
               </button>
-              <button className="primary" disabled={!name.trim()}>
+              <button className="primary" disabled={!name.trim()} type="submit">
                 Create collection
               </button>
             </div>
