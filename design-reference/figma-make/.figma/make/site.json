@@ -1,0 +1,10 @@
+{
+  "description": "Save, organize, and rediscover developer resources from across the web in a personal knowledge library built for learning and exploration.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
