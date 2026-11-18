@@ -408,6 +408,30 @@ Phase 01.8 was commissioned to fix undersized typography, repair interactive dro
 6. `845d842 feat(collections): integrate persistent collections and tags`
 7. `2a78af6 feat(data): implement safe local vault migration`
 8. `0b92924 test: add backend integration and security coverage`
-9. `docs: document phase 02 backend architecture`
+9. `1cff196 docs: document phase 02 backend architecture`
+
+---
+
+## [Phase 02.1] — Authentication UI Integration & Supabase Session Activation
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-database-backend`  
+
+### Key Implementations:
+1. **Discoverable Entry Points:**
+   - Top navigation: Added editorial "Sign In" button on desktop; mobile profile avatar opens authentication dialog directly when unauthenticated.
+   - Desktop sidebar: Added a tactile, dedicated Sign In trigger card at the base of navigation with a rust "Login" pill.
+   - Settings page: Dedicated Cloud Sync card with "Sign In" and "Create Account" triggers.
+   - Home view: Added Local Vault Active welcome notice distinguishing local demo storage from synchronized cloud storage.
+2. **AuthModal Upgrade:**
+   - Sign In, Create Account, and Password Reset modes.
+   - Confirm password verification input.
+   - Show / hide password visibility toggle.
+   - Remember me checkbox for session retention.
+   - Inline field-level validation and Supabase email verification messaging.
+3. **Automated Verification:**
+   - Ran 27 automated end-to-end assertions via Chrome DevTools Protocol across desktop (1440px) and mobile viewports (360px, 375px, 390px, 430px).
+   - Generated visual acceptance screenshot artifacts in `docs/screenshots/`.
+   - 100% TypeScript type check and Next.js static production build passed.
+
 
 

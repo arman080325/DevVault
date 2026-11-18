@@ -409,17 +409,27 @@ export function SettingsView({
                       className="outline-button"
                       onClick={onSignOut}
                     >
+                      <Icon name="log-out" size={14} />
                       Sign out
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      className="settings-primary-btn"
-                      onClick={() => onOpenAuth?.("sign-in")}
-                    >
-                      <Icon name="user" size={15} />
-                      Connect Supabase
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="settings-primary-btn"
+                        onClick={() => onOpenAuth?.("sign-in")}
+                      >
+                        <Icon name="log-in" size={15} />
+                        Sign In
+                      </button>
+                      <button
+                        type="button"
+                        className="outline-button"
+                        onClick={() => onOpenAuth?.("sign-up")}
+                      >
+                        Create Account
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

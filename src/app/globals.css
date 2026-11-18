@@ -4035,6 +4035,145 @@ html.dark .sidebar-capture {
   color: #d97706;
 }
 
+/* Authentication Entry Points & Discoverability (Phase 02.1) */
+.top-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.top-signin-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(184, 93, 57, 0.12);
+}
+
+.top-synced-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.sidebar-auth-prompt {
+  width: 100%;
+}
+
+.sidebar-signin-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+}
+
+.sidebar-signin-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(184, 93, 57, 0.12);
+  transform: translateY(-1px);
+}
+
+.sidebar-signin-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: rgba(184, 93, 57, 0.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.sidebar-signin-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-signin-text b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.sidebar-signin-text small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.sidebar-signin-pill {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: var(--accent);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.sidebar-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.sidebar-profile-card .profile {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-signout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-signout-btn:hover {
+  color: var(--foreground);
+  background-color: rgba(0, 0, 0, 0.05);
+  border-color: var(--border);
+}
+
 @media (max-width: 640px) {
   .vault-migration-banner {
     flex-direction: column;

@@ -16,6 +16,9 @@ interface AppShellProps {
   userProfile?: UserProfile;
   theme?: "light" | "dark";
   onTheme?: () => void;
+  isAuthenticated?: boolean;
+  onOpenAuth?: (mode?: "sign-in" | "sign-up") => void;
+  onSignOut?: () => void;
 }
 
 export function AppShell({
@@ -29,6 +32,9 @@ export function AppShell({
   userProfile,
   theme: controlledTheme,
   onTheme: controlledOnTheme,
+  isAuthenticated = false,
+  onOpenAuth,
+  onSignOut,
 }: AppShellProps) {
   const [internalTheme, setInternalTheme] = React.useState<"light" | "dark">("light");
 
@@ -108,6 +114,9 @@ export function AppShell({
         exploreCount={exploreCount}
         onSelectCollection={onSelectCollection}
         userProfile={userProfile}
+        isAuthenticated={isAuthenticated}
+        onOpenAuth={onOpenAuth}
+        onSignOut={onSignOut}
       />
       <div className="app-column">
         <TopNav
@@ -117,6 +126,9 @@ export function AppShell({
           onSettings={() => onPage("settings")}
           onActivity={() => onPage("activity")}
           userProfile={userProfile}
+          isAuthenticated={isAuthenticated}
+          onOpenAuth={onOpenAuth}
+          onSignOut={onSignOut}
         />
         <main>{children}</main>
       </div>

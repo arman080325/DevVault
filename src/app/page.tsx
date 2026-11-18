@@ -451,10 +451,45 @@ function DashboardContent() {
       userProfile={userProfile}
       theme={theme}
       onTheme={handleToggleTheme}
+      isAuthenticated={Boolean(authUser)}
+      onOpenAuth={handleOpenAuth}
+      onSignOut={handleSignOut}
     >
       {page === "home" && (
         <>
-          {migrationAvailable && (
+          {/* Local Mode Invitation Banner when Unauthenticated */}
+          {!authUser && (
+            <div className="vault-migration-banner">
+              <div className="vault-migration-icon">
+                <Icon name="log-in" size={18} />
+              </div>
+              <div className="vault-migration-body">
+                <b>Local Vault Active</b>
+                <p>
+                  Your resources are currently saved in this browser. Sign in or create an account to activate persistent cloud sync.
+                </p>
+              </div>
+              <div className="vault-migration-actions">
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => handleOpenAuth("sign-in")}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  className="outline-button"
+                  onClick={() => handleOpenAuth("sign-up")}
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Cloud Migration Banner when Authenticated with local unsynced data */}
+          {authUser && migrationAvailable && (
             <div className="vault-migration-banner">
               <div className="vault-migration-icon">
                 <Icon name="upload" size={18} />
