@@ -144,6 +144,86 @@ Verified without horizontal overflow, cutoffs, or misalignments across 8 targete
 5. `213b84b fix: resolve mobile layout and overflow issues`
 6. `test: add responsive interface verification`
 
-### 5. Next Steps (Awaiting Phase 02 Authorization)
-- Review and approval by project owner of Phase 01.5 design and responsive implementation.
+### 5. Next Steps (Superseded by Phase 01.6 Figma Make Migration)
+- Transitioned to Phase 01.6 for comprehensive migration of the approved Figma Make design reference.
+
+---
+
+## [Phase 01.6] — Complete Frontend Design Migration (Figma Make to Next.js)
+**Date:** November 18, 2026  
+**Status:** Completed  
+**Working Branch:** `feat/figma-design-implementation`  
+**Reference Source:** `design-reference/figma-make/`  
+
+### 1. Context & Motivation
+The complete product experience was authored in Figma Make and exported as an interactive reference. This phase translated the approved visual design, typography, editorial hierarchy, and responsive interactions into our production Next.js application while preserving application architecture, state dynamics, and route integrity.
+
+### 2. Implementation Milestones Completed
+- [x] **Stage A — Complete Codebase Audit**:
+  - Analyzed Next.js production codebase vs. Vite + Tailwind CSS v4 Figma Make reference.
+  - Documented tokens, architecture, functional mappings, and component plans in `docs/FIGMA_MIGRATION_PLAN.md`.
+  - Excluded `design-reference` from `tsconfig.json` to prevent build collisions.
+- [x] **Stage B — Design System Migration**:
+  - Migrated Figma Make warm paper (`#f4f0e8`) light theme and dark warm espresso (`#171512`) / ember theme.
+  - Adopted curated typography system:
+    - **Newsreader**: Editorial serif for hero banners, quotes, numbers, and card titles (`em` italic accents).
+    - **Instrument Sans**: Editorial sans for general UI text, buttons, body copy.
+    - **IBM Plex Mono**: Technical metadata, URLs, tags, status pills, and shortcuts.
+  - Migrated full suite of custom CSS tokens, component styles, and animations in `src/app/globals.css` and `tailwind.config.ts`.
+- [x] **Stage C — Application Shell**:
+  - Created `Brand` component with tilted square glyph (`-8deg` outer, `16deg` inner) + DevVault wordmark.
+  - Rebuilt 230px fixed desktop sidebar with "Save a link" primary button, active route states, collection quick links with color-coded dots (`rust`, `ink`, `sage`), and user profile trigger.
+  - Rebuilt sticky topbar with mobile brand identity, global search trigger (`⌘ K`), theme toggle (sun/moon), and mobile avatar.
+  - Rebuilt mobile bottom navigation bar (5 tabs: Home, Library, floating center Save, Explore, Collections) with safe-area bottom padding.
+- [x] **Stage D — Home Dashboard**:
+  - Implemented editorial greeting (`Good morning, Alex. What have you found?`), dynamic date, and hero `CaptureBar`.
+  - Implemented Section 01 (`Continue exploring` with large artwork card and progress bar).
+  - Implemented Section 02 (`Recently saved` rows with source badges `GH`, `YT`, `AR`, `DO`, `IG`, `MO`).
+  - Implemented Section 03 (`Curated shelves` mini cards in rust & ink + `At a glance` activity card).
+- [x] **Stage E — Resource Library**:
+  - Implemented personal index header with live counts, search input with clear button, platform filters (`All`, `GitHub`, `YouTube`, `Article`, `Documentation`, `More`), and sort dropdown.
+  - Implemented Grid / List view toggle with `LibraryCard` (dynamic `ResourceArt` header, domain, length, title, description, category, status pill, more menu).
+  - Implemented empty state (`NoResults`) with clear search trigger.
+- [x] **Stage F — Resource Detail & Quick Capture**:
+  - Implemented `ResourceDetailDrawer`: Slide-out panel on desktop, full-screen on mobile, with large artwork header, open original action, mark explored/completed toggle, editable notes, organization rows, and metadata.
+  - Implemented `QuickCaptureModal`: Centered modal on desktop, bottom sheet on mobile, with URL input, auto metadata preview, category & status dropdowns, note input, save shortcut (`⌘ ↵`), loading animation, and floating toast feedback.
+- [x] **Stage G — Explore Later & Collections**:
+  - Implemented `ExploreView`: Queue controls (`All`, `Short reads`, `Watch`), numbered queue list with thumbnail art, domain/length, and "Start exploring" / "Remove" actions.
+  - Implemented `CollectionsView`: Curated shelves grid (`rust`, `ink`, `sage`, `sand`), "+ New collection" modal form with live state creation.
+- [x] **Stage H — Activity & Settings**:
+  - Implemented `ActivityView`: Monthly summary, 12-week interactive rhythm bar chart with hover heights and month axis, vault total / top interest / return rate metrics, and recent activity timeline.
+  - Implemented `SettingsView`: Profile card, reading atmosphere theme switch, capture defaults, weekly rediscovery toggle, and vault data export / clear actions.
+- [x] **Stage I & J — Responsive Engineering & Visual QA**:
+  - Verified across 8 viewports: 360px, 375px, 390px, 430px, 768px, 1024px, 1280px, 1440px with 0px horizontal overflow.
+  - Captured complete suite of 19 verification screenshots in `docs/screenshots/`.
+  - TypeScript strict check: 0 errors (`tsc --noEmit`).
+  - Next.js production build: 100% compiled static routes without errors (reduced bundle size to 11.1 kB).
+  - ESLint: 0 errors, 0 warnings.
+
+### 3. Responsive Verification Matrix
+| Viewport | Device Profile | Status | Horizontal Scroll | Visual Quality |
+|---|---|:---:|:---:|:---:|
+| **360 x 740** | Galaxy S8 / Small Android | Pass | None (0px) | Flawless |
+| **375 x 812** | iPhone SE / iPhone Mini | Pass | None (0px) | Flawless |
+| **390 x 844** | iPhone 12 / 13 / 14 / 15 | Pass | None (0px) | Flawless |
+| **430 x 932** | iPhone 14 / 15 / 16 Pro Max | Pass | None (0px) | Flawless |
+| **768 x 1024** | iPad Mini / Tablet Portrait | Pass | None (0px) | Flawless |
+| **1024 x 768** | iPad Pro / Small Laptop | Pass | None (0px) | Flawless |
+| **1280 x 800** | Standard 13" MacBook / Laptop | Pass | None (0px) | Flawless |
+| **1440 x 900** | Large Desktop Display | Pass | None (0px) | Flawless |
+
+### 4. Git Commits in Phase 01.6
+1. `fcd7b79 docs: add Figma Make design reference`
+2. `fd36902 ui: migrate approved design tokens and typography`
+3. `f2494fe ui: implement redesigned application shell`
+4. `1036b71 ui: migrate home dashboard experience`
+5. `385cc23 ui: implement redesigned resource library`
+6. `8630c28 ui: implement resource detail and quick capture`
+7. `3716ae5 feat: implement explore later and collections interfaces`
+8. `21f62fc ui: implement activity and settings experiences`
+9. `bc61f47 fix: complete responsive and visual refinements`
+10. `test: verify Figma implementation across viewports`
+
+### 5. Next Steps (Awaiting Owner Review & Authorization)
+- Review and approval by project owner of Phase 01.6 design migration.
 - Branch merge or continuation to Phase 02: Database architecture, Supabase integration, Prisma migrations, and real data persistence.

@@ -102,12 +102,12 @@
 ## 5. Implementation Milestones & Commit Sequence
 
 - [x] **Milestone 1**: `docs: add Figma Make design reference` (Commit `fcd7b79`)
-- [ ] **Milestone 2**: `ui: migrate approved design tokens and typography`
-- [ ] **Milestone 3**: `ui: implement redesigned application shell`
-- [ ] **Milestone 4**: `ui: migrate home dashboard experience`
-- [ ] **Milestone 5**: `ui: implement redesigned resource library`
-- [ ] **Milestone 6**: `ui: implement resource detail and quick capture`
-- [ ] **Milestone 7**: `feat: implement explore later and collections interfaces`
-- [ ] **Milestone 8**: `ui: implement activity and settings experiences`
-- [ ] **Milestone 9**: `fix: complete responsive and visual refinements`
-- [ ] **Milestone 10**: `test: verify Figma implementation across viewports`
+- [x] **Milestone 2**: `ui: migrate approved design tokens and typography` (Commit `fd36902`)
+- [x] **Milestone 3**: `ui: implement redesigned application shell` (Commit `f2494fe`)
+- [x] **Milestone 4**: `ui: migrate home dashboard experience` (Commit `1036b71`)
+- [x] **Milestone 5**: `ui: implement redesigned resource library` (Commit `385cc23`)
+- [x] **Milestone 6**: `ui: implement resource detail and quick capture` (Commit `8630c28`)
+- [x] **Milestone 7**: `feat: implement explore later and collections interfaces` (Commit `3716ae5`)
+- [x] **Milestone 8**: `ui: implement activity and settings experiences` (Commit `21f62fc`)
+- [x] **Milestone 9**: `fix: complete responsive and visual refinements` (Commit `bc61f47`)
+- [x] **Milestone 10**: `test: verify Figma implementation across viewports` (Commit pending)
