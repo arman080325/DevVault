@@ -4,8 +4,8 @@
   "description": "An editorial, calm, high-signal personal developer knowledge workspace. Discover. Capture. Organize. Explore. Grow.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#111714",
-  "theme_color": "#111714",
+  "background_color": "#f4f0e8",
+  "theme_color": "#f4f0e8",
   "icons": [
     {
       "src": "/icons/icon.svg",
