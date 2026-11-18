@@ -11,6 +11,8 @@ interface ResourceDetailDrawerProps {
   onToggleStatus?: (id: number) => void;
   onToggleBookmark?: (id: number) => void;
   onUpdateNotes?: (id: number, notes: string) => void;
+  onUpdateResource?: (id: number, updates: Partial<FigmaResource>, remoteId?: string) => void;
+  onDeleteResource?: (id: number, url?: string, remoteId?: string) => void;
   onToast?: (message: string) => void;
 }
 
@@ -20,24 +22,27 @@ export function ResourceDetailDrawer({
   onToggleStatus,
   onToggleBookmark,
   onUpdateNotes,
+  onUpdateResource,
+  onDeleteResource,
   onToast,
 }: ResourceDetailDrawerProps) {
   const [completed, setCompleted] = useState(resource.status === "Completed");
   const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [noteText, setNoteText] = useState(
-    resource.notes ||
-      "The examples are unusually clear. Return to the section on shared layout transitions when building the collection view."
-  );
+  const [noteText, setNoteText] = useState(resource.notes || "");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleText, setTitleText] = useState(resource.title);
+  const [descText, setDescText] = useState(resource.description);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const isBookmarked = Boolean(resource.pinned || resource.favorite);
 
   useEffect(() => {
     setCompleted(resource.status === "Completed");
-    setNoteText(
-      resource.notes ||
-        "The examples are unusually clear. Return to the section on shared layout transitions when building the collection view."
-    );
+    setNoteText(resource.notes || "");
+    setTitleText(resource.title);
+    setDescText(resource.description);
+    setIsEditingTitle(false);
+    setIsEditingNotes(false);
   }, [resource]);
 
   // Background scroll lock & Escape listener
@@ -69,12 +74,35 @@ export function ResourceDetailDrawer({
     onToast?.("Notes updated");
   };
 
+  const handleSaveTitleAndDesc = () => {
+    if (!titleText.trim()) return;
+    onUpdateResource?.(
+      resource.id,
+      {
+        title: titleText.trim(),
+        description: descText.trim(),
+      },
+      resource.remoteId
+    );
+    setIsEditingTitle(false);
+    onToast?.("Details updated");
+  };
+
   const handleCopyLink = () => {
     if (resource.url) {
       navigator.clipboard?.writeText(resource.url);
       onToast?.("Resource URL copied");
     } else {
       onToast?.("No URL available for this resource");
+    }
+    setIsMoreOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm("Are you sure you want to delete this resource from your vault?")) {
+      onDeleteResource?.(resource.id, resource.url, resource.remoteId);
+      onClose();
+      onToast?.("Resource deleted");
     }
     setIsMoreOpen(false);
   };
@@ -142,6 +170,17 @@ export function ResourceDetailDrawer({
                 <button
                   type="button"
                   onClick={() => {
+                    setIsEditingTitle(true);
+                    setIsMoreOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  <span>Edit title & summary</span>
+                  <Icon name="more" size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     onToggleBookmark?.(resource.id);
                     setIsMoreOpen(false);
                   }}
@@ -160,6 +199,15 @@ export function ResourceDetailDrawer({
                 >
                   <span>{completed ? "Mark to explore" : "Mark completed"}</span>
                   <Icon name="check" size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  role="menuitem"
+                  className="text-red-500 hover:text-red-700 font-medium"
+                >
+                  <span>Delete resource</span>
+                  <Icon name="trash" size={13} />
                 </button>
               </div>
             )}
@@ -183,8 +231,55 @@ export function ResourceDetailDrawer({
               <span>{resource.length}</span>
             </div>
 
-            <h1>{resource.title}</h1>
-            <p className="detail-description">{resource.description}</p>
+            {isEditingTitle ? (
+              <div className="mb-4">
+                <label className="block text-xs uppercase font-semibold text-[var(--muted,#7c7468)] mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={titleText}
+                  onChange={(e) => setTitleText(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border,#e4dfd5)] dark:border-[var(--border,#2b2722)] bg-[var(--surface,#fcfbf8)] dark:bg-[var(--surface,#1a1815)] text-[16px] font-bold focus:outline-none focus:ring-1 focus:ring-[var(--accent,#b85d39)]"
+                  placeholder="Resource title"
+                />
+                <label className="block text-xs uppercase font-semibold text-[var(--muted,#7c7468)] mt-3 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={descText}
+                  onChange={(e) => setDescText(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border,#e4dfd5)] dark:border-[var(--border,#2b2722)] bg-[var(--surface,#fcfbf8)] dark:bg-[var(--surface,#1a1815)] text-[14px] focus:outline-none focus:ring-1 focus:ring-[var(--accent,#b85d39)]"
+                  rows={3}
+                  placeholder="Summary or description"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveTitleAndDesc}
+                    className="save-note"
+                  >
+                    Save details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTitleText(resource.title);
+                      setDescText(resource.description);
+                      setIsEditingTitle(false);
+                    }}
+                    className="cancel-note"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1>{resource.title}</h1>
+                <p className="detail-description">{resource.description}</p>
+              </>
+            )}
 
             <div className="detail-actions">
               <button
@@ -237,9 +332,9 @@ export function ResourceDetailDrawer({
                 </div>
               ) : (
                 <>
-                  <p>{noteText}</p>
+                  <p>{noteText || "No personal notes added yet. Record key takeaways or syntax tips here."}</p>
                   <button type="button" onClick={() => setIsEditingNotes(true)}>
-                    Edit note
+                    {noteText ? "Edit note" : "Add note"}
                   </button>
                 </>
               )}
@@ -270,13 +365,15 @@ export function ResourceDetailDrawer({
                 <b>{resource.saved}</b>
               </div>
               <div>
-                <span>Last opened</span>
-                <b>2 hours ago</b>
-              </div>
-              <div>
                 <span>Source</span>
                 <b>{resource.domain}</b>
               </div>
+              {resource.url && (
+                <div className="col-span-2">
+                  <span>URL</span>
+                  <b className="truncate block text-xs">{resource.url}</b>
+                </div>
+              )}
             </section>
           </div>
         </div>

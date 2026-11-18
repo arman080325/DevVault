@@ -164,9 +164,7 @@ function DashboardContent() {
           });
         }
         const cloudResources = await resourceService.fetchResources(user.id);
-        if (cloudResources.length > 0) {
-          setResources(cloudResources);
-        }
+        setResources(cloudResources);
         const cloudCols = await collectionService.fetchCollections(user.id);
         if (cloudCols.length > 0) {
           setCollections(cloudCols);
@@ -174,6 +172,31 @@ function DashboardContent() {
         const detection = migrationService.detectLocalData();
         if (detection.hasData) {
           setMigrationAvailable(true);
+        }
+      } else {
+        // Clear authenticated state and restore local cache
+        const localResRaw = localStorage.getItem("devvault-local-resources");
+        if (localResRaw) {
+          try {
+            const parsed = JSON.parse(localResRaw);
+            setResources(Array.isArray(parsed) ? parsed : INITIAL_FIGMA_RESOURCES);
+          } catch {
+            setResources(INITIAL_FIGMA_RESOURCES);
+          }
+        } else {
+          setResources(INITIAL_FIGMA_RESOURCES);
+        }
+
+        const localColsRaw = localStorage.getItem("devvault-local-collections");
+        if (localColsRaw) {
+          try {
+            const parsedCols = JSON.parse(localColsRaw);
+            setCollections(Array.isArray(parsedCols) ? parsedCols : INITIAL_COLLECTIONS);
+          } catch {
+            setCollections(INITIAL_COLLECTIONS);
+          }
+        } else {
+          setCollections(INITIAL_COLLECTIONS);
         }
       }
     });
@@ -199,6 +222,38 @@ function DashboardContent() {
       setAuthUser(null);
       setAuthSession(null);
       setMigrationAvailable(false);
+
+      // Restore local data so unauthenticated view does not leak cloud data
+      const localResRaw = localStorage.getItem("devvault-local-resources");
+      if (localResRaw) {
+        try {
+          const parsed = JSON.parse(localResRaw);
+          setResources(Array.isArray(parsed) ? parsed : INITIAL_FIGMA_RESOURCES);
+        } catch {
+          setResources(INITIAL_FIGMA_RESOURCES);
+        }
+      } else {
+        setResources(INITIAL_FIGMA_RESOURCES);
+      }
+
+      const localColsRaw = localStorage.getItem("devvault-local-collections");
+      if (localColsRaw) {
+        try {
+          const parsedCols = JSON.parse(localColsRaw);
+          setCollections(Array.isArray(parsedCols) ? parsedCols : INITIAL_COLLECTIONS);
+        } catch {
+          setCollections(INITIAL_COLLECTIONS);
+        }
+      } else {
+        setCollections(INITIAL_COLLECTIONS);
+      }
+
+      setUserProfile({
+        name: localStorage.getItem("devvault-user-name") || "Alex Lin",
+        email: localStorage.getItem("devvault-user-email") || "alex@devvault.app",
+        role: localStorage.getItem("devvault-user-role") || "Personal vault",
+      });
+
       showToast("Signed out of vault");
     } catch (err) {
       console.warn("Sign out error:", err);
@@ -308,11 +363,156 @@ function DashboardContent() {
   }, []);
 
   const handleSaveResource = async (newRes: Partial<FigmaResource>) => {
+    // Duplicate URL detection
+    if (newRes.url && authUser) {
+      const isDupe = await resourceService.checkDuplicateUrl(authUser.id, newRes.url);
+      if (isDupe) {
+        showToast("Notice: URL already in your vault");
+      }
+    }
+
     const created = await resourceService.createResource(authUser?.id || null, newRes);
     setResources((prev) => [created, ...prev]);
+
+    // Refresh collection counts if assigned to a shelf
+    if (authUser && created.collection) {
+      const refreshedCols = await collectionService.fetchCollections(authUser.id);
+      if (refreshedCols.length > 0) setCollections(refreshedCols);
+    }
+
     setToast(true);
     window.setTimeout(() => setToast(false), 3200);
   };
+
+  const handleUpdateResource = React.useCallback(
+    async (id: number, updates: Partial<FigmaResource>, remoteId?: string) => {
+      const previous = resources;
+      // Optimistic update
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === id || (remoteId && r.remoteId === remoteId)
+            ? { ...r, ...updates }
+            : r
+        )
+      );
+      if (
+        selectedResource &&
+        (selectedResource.id === id || (remoteId && selectedResource.remoteId === remoteId))
+      ) {
+        setSelectedResource((prev) => (prev ? { ...prev, ...updates } : null));
+      }
+
+      try {
+        await resourceService.updateResource(
+          authUser?.id || null,
+          id,
+          updates,
+          remoteId
+        );
+      } catch (err) {
+        console.warn("Failed to persist update, rolling back:", err);
+        setResources(previous);
+        showToast("Update failed. Reverting changes.");
+      }
+    },
+    [authUser, resources, selectedResource, showToast]
+  );
+
+  const handleDeleteResource = React.useCallback(
+    async (id: number, url?: string, remoteId?: string) => {
+      const previous = resources;
+      // Optimistic delete
+      setResources((prev) =>
+        prev.filter((r) => (remoteId ? r.remoteId !== remoteId : r.id !== id))
+      );
+      if (
+        selectedResource &&
+        (selectedResource.id === id || (remoteId && selectedResource.remoteId === remoteId))
+      ) {
+        setSelectedResource(null);
+      }
+
+      try {
+        await resourceService.deleteResource(
+          authUser?.id || null,
+          id,
+          url,
+          remoteId
+        );
+        // Refresh collection count
+        if (authUser) {
+          const refreshedCols = await collectionService.fetchCollections(authUser.id);
+          if (refreshedCols.length > 0) setCollections(refreshedCols);
+        }
+      } catch (err) {
+        console.warn("Failed to delete resource, rolling back:", err);
+        setResources(previous);
+        showToast("Delete failed. Reverting.");
+      }
+    },
+    [authUser, resources, selectedResource, showToast]
+  );
+
+  const handleCreateCollection = React.useCallback(
+    async (newCol: CollectionItem) => {
+      try {
+        const created = await collectionService.createCollection(authUser?.id || null, newCol);
+        setCollections((prev) => [...prev.filter((c) => c.name !== created.name), created]);
+        showToast(`Shelf "${created.name}" created`);
+      } catch (err) {
+        console.warn("Failed to create collection:", err);
+        showToast("Failed to create shelf.");
+      }
+    },
+    [authUser, showToast]
+  );
+
+  const handleUpdateCollection = React.useCallback(
+    async (oldName: string, updates: Partial<CollectionItem>) => {
+      try {
+        if (updates.name && updates.name !== oldName) {
+          await collectionService.renameCollection(authUser?.id || null, oldName, updates.name);
+        }
+        if (updates.note !== undefined || updates.tone !== undefined) {
+          await collectionService.updateCollection(authUser?.id || null, updates.name || oldName, {
+            note: updates.note,
+            tone: updates.tone,
+          });
+        }
+        setCollections((prev) =>
+          prev.map((c) => (c.name === oldName ? { ...c, ...updates } : c))
+        );
+        // Rename collection reference in resources
+        if (updates.name && updates.name !== oldName) {
+          setResources((prev) =>
+            prev.map((r) => (r.collection === oldName ? { ...r, collection: updates.name } : r))
+          );
+        }
+        showToast("Shelf updated");
+      } catch (err) {
+        console.warn("Failed to update collection:", err);
+        showToast("Failed to update shelf.");
+      }
+    },
+    [authUser, showToast]
+  );
+
+  const handleDeleteCollection = React.useCallback(
+    async (name: string, id?: string) => {
+      try {
+        await collectionService.deleteCollection(authUser?.id || null, name, id);
+        setCollections((prev) => prev.filter((c) => (id ? c.id !== id : c.name !== name)));
+        setResources((prev) =>
+          prev.map((r) => (r.collection === name ? { ...r, collection: undefined } : r))
+        );
+        showToast(`Shelf "${name}" deleted`);
+      } catch (err) {
+        console.warn("Failed to delete collection:", err);
+        showToast("Failed to delete shelf.");
+      }
+    },
+    [authUser, showToast]
+  );
 
   const handleToggleStatus = async (id: number) => {
     const target = resources.find((r) => r.id === id);
@@ -336,11 +536,17 @@ function DashboardContent() {
       })
     );
 
-    await resourceService.updateResource(authUser?.id || null, id, {
-      status: nextStatus as FigmaResource["status"],
-      progress: nextProgress,
-      url: target?.url,
-    });
+    await resourceService.updateResource(
+      authUser?.id || null,
+      id,
+      {
+        status: nextStatus as FigmaResource["status"],
+        progress: nextProgress,
+        url: target?.url,
+        title: target?.title,
+      },
+      target?.remoteId
+    );
   };
 
   const handleToggleBookmark = async (id: number) => {
@@ -361,11 +567,17 @@ function DashboardContent() {
       })
     );
 
-    await resourceService.updateResource(authUser?.id || null, id, {
-      pinned: next,
-      favorite: next,
-      url: target?.url,
-    });
+    await resourceService.updateResource(
+      authUser?.id || null,
+      id,
+      {
+        pinned: next,
+        favorite: next,
+        url: target?.url,
+        title: target?.title,
+      },
+      target?.remoteId
+    );
   };
 
   const handleUpdateNotes = async (id: number, notes: string) => {
@@ -384,10 +596,16 @@ function DashboardContent() {
       })
     );
 
-    await resourceService.updateResource(authUser?.id || null, id, {
-      notes,
-      url: target?.url,
-    });
+    await resourceService.updateResource(
+      authUser?.id || null,
+      id,
+      {
+        notes,
+        url: target?.url,
+        title: target?.title,
+      },
+      target?.remoteId
+    );
   };
 
   const handleRemoveFromQueue = (id: number) => {
@@ -567,11 +785,19 @@ function DashboardContent() {
         <CollectionsView
           collections={collections}
           onOpenCollection={(col) => handleSelectCollection(col.name)}
-          onCreateCollection={(col) => setCollections((prev) => [...prev, col])}
+          onCreateCollection={handleCreateCollection}
+          onUpdateCollection={handleUpdateCollection}
+          onDeleteCollection={handleDeleteCollection}
         />
       )}
 
-      {page === "activity" && <ActivityView />}
+      {page === "activity" && (
+        <ActivityView
+          resources={resources}
+          collections={collections}
+          userId={authUser?.id}
+        />
+      )}
 
       {page === "settings" && (
         <SettingsView
@@ -618,6 +844,8 @@ function DashboardContent() {
           onToggleStatus={handleToggleStatus}
           onToggleBookmark={handleToggleBookmark}
           onUpdateNotes={handleUpdateNotes}
+          onUpdateResource={handleUpdateResource}
+          onDeleteResource={handleDeleteResource}
           onToast={showToast}
         />
       )}

@@ -433,5 +433,33 @@ Phase 01.8 was commissioned to fix undersized typography, repair interactive dro
    - Generated visual acceptance screenshot artifacts in `docs/screenshots/`.
    - 100% TypeScript type check and Next.js static production build passed.
 
+---
+
+## [Phase 02.2] — Complete Supabase Data Persistence & Synchronization
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-2-data-persistence`  
+
+### Key Implementations:
+1. **Full Resource Persistence & Data Normalization:**
+   - Preserved PostgreSQL UUIDs in `remoteId?: string` on `FigmaResource` for primary-key indexed mutations.
+   - Normalized URL matching (`lowercase`, stripped trailing slashes, protocol, query parameters).
+   - Upgraded `resourceService` with full CRUD: `createResource`, `fetchResources`, `updateResource`, `deleteResource`, and `checkDuplicateUrl`.
+   - Wired optimistic UI updates with automatic rollback on network error.
+2. **Collections & Shelves Lifecycle:**
+   - Upgraded `collectionService` with `fetchCollections`, `createCollection`, `renameCollection`, `updateCollection`, and `deleteCollection`.
+   - Joined `collection_resources(count)` for accurate, real-time resource counts per shelf.
+   - Added shelf editing and deletion modal to `CollectionsView`.
+3. **Tags Management:**
+   - Created `tagService` (`createTag`, `getTags`, `assignTagsToResource`, `removeTagFromResource`, `searchByTag`).
+   - Guarded against duplicate tag rows via `(user_id, name)` unique constraints and junction policies.
+4. **Dynamic Activity & Insights:**
+   - Created `activityService` logging audit trail entries (`CAPTURED`, `UPDATED`, `PINNED`, `COMPLETED`, `COLLECTION_CREATED`, `COLLECTION_ADDED`).
+   - Dynamic derivation of total saved, explored, monthly growth, top category, return rate, and 12-bar rhythm chart in `ActivityView`.
+5. **Multi-User Security & Verification:**
+   - Verified PostgreSQL Row Level Security (RLS) enforcement against unauthorized direct injection (blocked with code 42501).
+   - Ran 48 automated end-to-end assertions via `scripts/verify-phase-02-2.js` with 100% pass rate.
+   - Generated visual acceptance screenshots: `phase-02-2-collections.png`, `phase-02-2-activity.png`, `phase-02-2-library.png`.
+
+
 
 

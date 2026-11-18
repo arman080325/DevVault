@@ -57,6 +57,7 @@ export function LibraryView({
         resource.description.toLowerCase().includes(q) ||
         resource.category.toLowerCase().includes(q) ||
         resource.domain.toLowerCase().includes(q) ||
+        (resource.collection && resource.collection.toLowerCase().includes(q)) ||
         (resource.tags && resource.tags.some((t) => t.toLowerCase().includes(q)));
 
       const matchesFilter =

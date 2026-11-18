@@ -1,4 +1,4 @@
-import { getBrowserSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 import { type ResourceRow } from "@/lib/supabase/types";
 import { FigmaResource } from "@/data/figmaResources";
 import { ResourceKind } from "@/components/resources/resource-art";
@@ -36,11 +36,11 @@ export function mapRowToFigmaResource(
   else if (p === "DESIGN" || p === "TOOL") kind = "article";
 
   // Deterministic numeric ID for frontend compatibility
-  // Numeric ID derived from row.id hash if needed, or date timestamp
   const numId = parseInt(row.id.replace(/-/g, "").slice(0, 8), 16) || Date.now();
 
   return {
     id: numId,
+    remoteId: row.id,
     kind,
     source: row.platform || "Web",
     domain: row.source_domain || "web",
@@ -172,6 +172,7 @@ export const resourceService = {
       saved: "Today",
       status: resource.status || "To explore",
       progress: resource.progress || 0,
+      collection: resource.collection,
       url: resource.url,
       notes: resource.notes,
       tags: resource.tags || [resource.category || "General"],
@@ -207,30 +208,55 @@ export const resourceService = {
 
         if (error) {
           console.warn("Error inserting resource into Supabase:", error);
+          throw error;
         } else if (inserted) {
-          // Log Activity Event
-          await (supabase.from("activity_events") as any).insert({
-            user_id: userId,
-            resource_id: inserted.id,
-            event_type: "CAPTURED",
-            metadata: { title: created.title, platform: created.source },
-          });
+          created.remoteId = inserted.id;
+
+          // Log Activity Event: CAPTURED
+          try {
+            await (supabase.from("activity_events") as any).insert({
+              user_id: userId,
+              resource_id: inserted.id,
+              event_type: "CAPTURED",
+              metadata: { title: created.title, platform: created.source },
+            });
+          } catch {}
 
           // Insert tags
           if (created.tags && created.tags.length > 0) {
             for (const tagName of created.tags) {
-              const { data: tagRow } = await (supabase.from("tags") as any)
-                .upsert({ user_id: userId, name: tagName }, { onConflict: "user_id,name" })
-                .select("id")
-                .single();
+              try {
+                const { data: tagRow } = await (supabase.from("tags") as any)
+                  .upsert({ user_id: userId, name: tagName }, { onConflict: "user_id,name" })
+                  .select("id")
+                  .single();
 
-              if (tagRow) {
-                await (supabase.from("resource_tags") as any).insert({
+                if (tagRow) {
+                  await (supabase.from("resource_tags") as any).insert({
+                    resource_id: inserted.id,
+                    tag_id: tagRow.id,
+                  });
+                }
+              } catch {}
+            }
+          }
+
+          // Link collection if specified
+          if (created.collection) {
+            try {
+              const { data: colRow } = await (supabase.from("collections") as any)
+                .select("id")
+                .eq("user_id", userId)
+                .eq("name", created.collection)
+                .maybeSingle();
+
+              if (colRow) {
+                await (supabase.from("collection_resources") as any).insert({
+                  collection_id: colRow.id,
                   resource_id: inserted.id,
-                  tag_id: tagRow.id,
                 });
               }
-            }
+            } catch {}
           }
         }
       } catch (err) {
@@ -238,7 +264,7 @@ export const resourceService = {
       }
     }
 
-    // Always update local cache for smooth instant UI and offline safety
+    // Update local cache if not authenticated or as an offline fallback
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
       const existing: FigmaResource[] = raw ? JSON.parse(raw) : [];
@@ -248,34 +274,74 @@ export const resourceService = {
     return created;
   },
 
-  // Update resource status, notes, pinned, favorite
+  // Update resource status, notes, pinned, favorite, title, description, category
   async updateResource(
     userId: string | null,
     id: number,
-    updates: Partial<FigmaResource>
+    updates: Partial<FigmaResource>,
+    remoteId?: string
   ): Promise<void> {
     const supabase = getBrowserSupabase();
 
-    if (supabase && userId && updates.url) {
-      const norm = normalizeUrl(updates.url);
-      if (norm) {
-        try {
-          const updatePayload: any = {};
-          if (updates.status !== undefined) updatePayload.status = updates.status;
-          if (updates.progress !== undefined) updatePayload.progress = updates.progress;
-          if (updates.notes !== undefined) updatePayload.personal_notes = updates.notes;
-          if (updates.pinned !== undefined) updatePayload.is_pinned = updates.pinned;
-          if (updates.favorite !== undefined) updatePayload.is_favorite = updates.favorite;
-          if (updates.status === "Completed") updatePayload.explored_at = new Date().toISOString();
-
-          await supabase
-            .from("resources")
-            .update(updatePayload)
-            .eq("user_id", userId)
-            .eq("normalized_url", norm);
-        } catch (err) {
-          console.warn("updateResource remote error:", err);
+    if (supabase && userId) {
+      try {
+        const updatePayload: any = {};
+        if (updates.title !== undefined) updatePayload.title = updates.title;
+        if (updates.description !== undefined) updatePayload.description = updates.description;
+        if (updates.category !== undefined) updatePayload.category = updates.category;
+        if (updates.status !== undefined) updatePayload.status = updates.status;
+        if (updates.progress !== undefined) updatePayload.progress = updates.progress;
+        if (updates.notes !== undefined) updatePayload.personal_notes = updates.notes;
+        if (updates.pinned !== undefined) updatePayload.is_pinned = updates.pinned;
+        if (updates.favorite !== undefined) updatePayload.is_favorite = updates.favorite;
+        if (updates.length !== undefined) updatePayload.read_time = updates.length;
+        if (updates.url !== undefined) {
+          updatePayload.original_url = updates.url;
+          updatePayload.normalized_url = normalizeUrl(updates.url);
         }
+        if (updates.status === "Completed") {
+          updatePayload.explored_at = new Date().toISOString();
+        }
+
+        let query = supabase.from("resources").update(updatePayload).eq("user_id", userId);
+        if (remoteId) {
+          query = query.eq("id", remoteId);
+        } else if (updates.url) {
+          const norm = normalizeUrl(updates.url);
+          if (norm) query = query.eq("normalized_url", norm);
+        }
+
+        const { error } = await query;
+        if (error) {
+          console.warn("updateResource query error:", error);
+          throw error;
+        }
+
+        // Log Activity Event for specific mutations
+        if (updates.status === "Completed") {
+          await (supabase.from("activity_events") as any).insert({
+            user_id: userId,
+            resource_id: remoteId || null,
+            event_type: "COMPLETED",
+            metadata: { title: updates.title, id },
+          });
+        } else if (updates.pinned !== undefined) {
+          await (supabase.from("activity_events") as any).insert({
+            user_id: userId,
+            resource_id: remoteId || null,
+            event_type: updates.pinned ? "PINNED" : "UNPINNED",
+            metadata: { title: updates.title, id },
+          });
+        } else {
+          await (supabase.from("activity_events") as any).insert({
+            user_id: userId,
+            resource_id: remoteId || null,
+            event_type: "UPDATED",
+            metadata: { title: updates.title, id },
+          });
+        }
+      } catch (err) {
+        console.warn("updateResource remote error:", err);
       }
     }
 
@@ -284,7 +350,11 @@ export const resourceService = {
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (raw) {
         const list: FigmaResource[] = JSON.parse(raw);
-        const updated = list.map((item) => (item.id === id ? { ...item, ...updates } : item));
+        const updated = list.map((item) =>
+          item.id === id || (remoteId && item.remoteId === remoteId)
+            ? { ...item, ...updates }
+            : item
+        );
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
       }
     } catch {}
@@ -294,21 +364,24 @@ export const resourceService = {
   async deleteResource(
     userId: string | null,
     id: number,
-    url?: string
+    url?: string,
+    remoteId?: string
   ): Promise<void> {
     const supabase = getBrowserSupabase();
-    if (supabase && userId && url) {
-      const norm = normalizeUrl(url);
-      if (norm) {
-        try {
-          await supabase
-            .from("resources")
-            .delete()
-            .eq("user_id", userId)
-            .eq("normalized_url", norm);
-        } catch (err) {
-          console.warn("deleteResource remote error:", err);
+    if (supabase && userId) {
+      try {
+        let query = supabase.from("resources").delete().eq("user_id", userId);
+        if (remoteId) {
+          query = query.eq("id", remoteId);
+        } else if (url) {
+          const norm = normalizeUrl(url);
+          if (norm) query = query.eq("normalized_url", norm);
         }
+
+        const { error } = await query;
+        if (error) throw error;
+      } catch (err) {
+        console.warn("deleteResource remote error:", err);
       }
     }
 
@@ -317,7 +390,9 @@ export const resourceService = {
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (raw) {
         const list: FigmaResource[] = JSON.parse(raw);
-        const filtered = list.filter((item) => item.id !== id);
+        const filtered = list.filter((item) =>
+          remoteId ? item.remoteId !== remoteId : item.id !== id
+        );
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
       }
     } catch {}
