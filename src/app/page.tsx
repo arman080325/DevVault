@@ -116,7 +116,9 @@ function DashboardContent() {
     setResources((prev) =>
       prev.map((r) => {
         if (r.id === id) {
-          const updated = { ...r, pinned: !r.pinned, favorite: !r.favorite };
+          const isCurrentlyBookmarked = Boolean(r.pinned || r.favorite);
+          const next = !isCurrentlyBookmarked;
+          const updated = { ...r, pinned: next, favorite: next };
           if (selectedResource?.id === id) {
             setSelectedResource(updated);
           }
