@@ -1,22 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <defs>
-    <linearGradient id="vault-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="50%" stop-color="#6366f1" />
-      <stop offset="100%" stop-color="#a855f7" />
-    </linearGradient>
-    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f172a" />
-      <stop offset="100%" stop-color="#020617" />
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="128" fill="url(#bg-grad)" />
-  <rect x="32" y="32" width="448" height="448" rx="96" stroke="url(#vault-grad)" stroke-width="8" stroke-opacity="0.4" fill="none" />
-  <!-- Vault Door Octagon -->
-  <path d="M192 112 H320 L400 192 V320 L320 400 H192 L112 320 V192 Z" stroke="url(#vault-grad)" stroke-width="20" stroke-linejoin="round" fill="#090d16" />
-  <!-- Center Core Terminal Symbol -->
-  <path d="M210 216 L254 256 L210 296" stroke="#38bdf8" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
-  <line x1="268" y1="296" x2="304" y2="296" stroke="#a855f7" stroke-width="24" stroke-linecap="round" />
-  <!-- Vault Dial Accents -->
-  <circle cx="256" cy="256" r="110" stroke="url(#vault-grad)" stroke-width="6" stroke-dasharray="12 16" />
+  <!-- DevVault App Icon: Warm Espresso and Rust Keystone Vault -->
+  <rect width="512" height="512" rx="112" fill="#171512" />
+  <rect x="24" y="24" width="464" height="464" rx="88" stroke="#3c3730" stroke-width="4" stroke-opacity="0.6" fill="none" />
+  
+  <!-- Outer Chamfered Vault Boundary -->
+  <path
+    d="M148 64 h216 l96 96 v192 l-96 96 H148 l-96-96 V160 l96-96 z"
+    stroke="#f1ece2"
+    stroke-width="24"
+    stroke-linejoin="round"
+    fill="#211e1a"
+  />
+
+  <!-- Vault Door Arch (D Monogram) -->
+  <path
+    d="M176 144 v224 h88 a112 112 0 0 0 0-224 H176 z"
+    stroke="#f1ece2"
+    stroke-width="20"
+    stroke-linejoin="round"
+    fill="#f1ece2"
+    fill-opacity="0.08"
+  />
+
+  <!-- Vault Locking Bolt (V Monogram) -->
+  <path
+    d="M256 244 L320 368 L384 244"
+    stroke="#b6503a"
+    stroke-width="26"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Central Tumbler Keystone -->
+  <circle cx="256" cy="256" r="32" fill="#b6503a" />
+  <circle cx="256" cy="256" r="14" fill="#171512" />
 </svg>
