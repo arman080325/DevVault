@@ -4,7 +4,7 @@ import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { type NavPage } from "@/components/layout/sidebar";
+import { type NavPage, type UserProfile } from "@/components/layout/sidebar";
 import { HomeView } from "@/components/views/home-view";
 import { LibraryView } from "@/components/views/library-view";
 import { ExploreView } from "@/components/views/explore-view";
@@ -27,6 +27,7 @@ function DashboardContent() {
   const isModalParam = searchParams.get("modal") === "capture";
 
   const [page, setPage] = React.useState<NavPage>(urlTab || "home");
+  const [theme, setTheme] = React.useState<"light" | "dark">("light");
   const [resources, setResources] = React.useState<FigmaResource[]>(INITIAL_FIGMA_RESOURCES);
   const [collections, setCollections] = React.useState<CollectionItem[]>(INITIAL_COLLECTIONS);
   const [selectedResource, setSelectedResource] = React.useState<FigmaResource | null>(null);
@@ -35,10 +36,64 @@ function DashboardContent() {
   const [toast, setToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
+  // User Profile State
+  const [userProfile, setUserProfile] = React.useState<UserProfile>({
+    name: "Alex Lin",
+    email: "alex@devvault.app",
+    role: "Personal vault",
+  });
+
+  // Synchronize profile & theme from localStorage
+  React.useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem("devvault-theme") as "light" | "dark" | null;
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+      const savedName = localStorage.getItem("devvault-user-name");
+      const savedEmail = localStorage.getItem("devvault-user-email");
+      const savedRole = localStorage.getItem("devvault-user-role");
+      if (savedName || savedEmail || savedRole) {
+        setUserProfile({
+          name: savedName || "Alex Lin",
+          email: savedEmail || "alex@devvault.app",
+          role: savedRole || "Personal vault",
+        });
+      }
+    } catch {}
+  }, []);
+
   const showToast = React.useCallback((message: string) => {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 3000);
   }, []);
+
+  const handleToggleTheme = React.useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      try {
+        localStorage.setItem("devvault-theme", next);
+        if (next === "dark") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.classList.remove("light");
+        } else {
+          document.documentElement.classList.remove("dark");
+          document.documentElement.classList.add("light");
+        }
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleUpdateProfile = React.useCallback((updated: UserProfile) => {
+    setUserProfile(updated);
+    try {
+      localStorage.setItem("devvault-user-name", updated.name);
+      localStorage.setItem("devvault-user-email", updated.email);
+      localStorage.setItem("devvault-user-role", updated.role);
+    } catch {}
+    showToast("Profile updated");
+  }, [showToast]);
 
   React.useEffect(() => {
     if (isModalParam) {
@@ -153,7 +208,7 @@ function DashboardContent() {
   const handleExportData = () => {
     const dataStr =
       "data:text/json;charset=utf-8," +
-      encodeURIComponent(JSON.stringify({ resources, collections }, null, 2));
+      encodeURIComponent(JSON.stringify({ resources, collections, userProfile }, null, 2));
     const downloadAnchor = document.createElement("a");
     downloadAnchor.setAttribute("href", dataStr);
     downloadAnchor.setAttribute("download", `devvault-backup-${new Date().toISOString().split("T")[0]}.json`);
@@ -162,12 +217,37 @@ function DashboardContent() {
     downloadAnchor.remove();
   };
 
+  const handleImportData = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed.resources)) {
+          setResources(parsed.resources);
+        }
+        if (Array.isArray(parsed.collections)) {
+          setCollections(parsed.collections);
+        }
+        if (parsed.userProfile && parsed.userProfile.name) {
+          handleUpdateProfile(parsed.userProfile);
+        }
+        showToast("Vault backup restored successfully");
+      } catch {
+        showToast("Failed to parse backup JSON");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleClearData = () => {
     setResources([]);
     setCollections([]);
   };
 
   const exploreCount = resources.filter((r) => r.status !== "Completed").length;
+  const exploredCount = resources.filter((r) => r.status === "Completed").length;
+  const vaultSizeKb = Math.max(12, Math.round(JSON.stringify({ resources, collections }).length / 1024));
 
   return (
     <AppShell
@@ -177,6 +257,9 @@ function DashboardContent() {
       onSearch={handleOpenSearch}
       exploreCount={exploreCount}
       onSelectCollection={handleSelectCollection}
+      userProfile={userProfile}
+      theme={theme}
+      onTheme={handleToggleTheme}
     >
       {page === "home" && (
         <HomeView
@@ -186,6 +269,7 @@ function DashboardContent() {
           onOpenResource={setSelectedResource}
           onNavigate={handleNavigate}
           onToggleBookmark={handleToggleBookmark}
+          userProfile={userProfile}
         />
       )}
 
@@ -221,17 +305,18 @@ function DashboardContent() {
 
       {page === "settings" && (
         <SettingsView
-          theme="light"
-          onTheme={() => {
-            const isDark = document.documentElement.classList.contains("dark");
-            const next = isDark ? "light" : "dark";
-            localStorage.setItem("devvault-theme", next);
-            document.documentElement.classList.toggle("dark", next === "dark");
-            document.documentElement.classList.toggle("light", next === "light");
-          }}
+          theme={theme}
+          onTheme={handleToggleTheme}
           onExportData={handleExportData}
+          onImportData={handleImportData}
           onClearData={handleClearData}
           onToast={showToast}
+          userProfile={userProfile}
+          onUpdateProfile={handleUpdateProfile}
+          resourcesCount={resources.length}
+          collectionsCount={collections.length}
+          exploredCount={exploredCount}
+          vaultSizeKb={vaultSizeKb}
         />
       )}
 

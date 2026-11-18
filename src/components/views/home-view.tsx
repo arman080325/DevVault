@@ -4,7 +4,7 @@ import React from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt } from "@/components/resources/resource-art";
 import { FigmaResource, CollectionItem } from "@/data/figmaResources";
-import { type NavPage } from "@/components/layout/sidebar";
+import { type NavPage, type UserProfile } from "@/components/layout/sidebar";
 
 interface HomeViewProps {
   resources: FigmaResource[];
@@ -13,6 +13,7 @@ interface HomeViewProps {
   onOpenResource: (resource: FigmaResource) => void;
   onNavigate: (page: NavPage) => void;
   onToggleBookmark?: (id: number) => void;
+  userProfile?: UserProfile;
 }
 
 export function HomeView({
@@ -22,7 +23,9 @@ export function HomeView({
   onOpenResource,
   onNavigate,
   onToggleBookmark,
+  userProfile,
 }: HomeViewProps) {
+  const firstName = userProfile?.name?.trim()?.split(" ")[0] || "Alex";
   const continueResource = resources.find((r) => r.status === "Exploring") || resources[0];
   const recentResources = resources.slice(1, 5);
 
@@ -49,7 +52,7 @@ export function HomeView({
       <section className="home-intro">
         <span className="date-label">THURSDAY, MAY 22</span>
         <h1>
-          Good morning, Alex.
+          Good morning, {firstName}.
           <br />
           <em>What have you found?</em>
         </h1>

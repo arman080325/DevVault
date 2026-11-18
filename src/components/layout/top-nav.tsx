@@ -3,6 +3,7 @@
 import React from "react";
 import { Brand } from "./brand";
 import { Icon } from "@/components/shared/icon";
+import { type UserProfile } from "./sidebar";
 
 interface TopNavProps {
   theme: "light" | "dark";
@@ -10,6 +11,7 @@ interface TopNavProps {
   onSearch: () => void;
   onSettings: () => void;
   onActivity: () => void;
+  userProfile?: UserProfile;
 }
 
 export function TopNav({
@@ -18,7 +20,18 @@ export function TopNav({
   onSearch,
   onSettings,
   onActivity,
+  userProfile,
 }: TopNavProps) {
+  const displayName = userProfile?.name || "Alex Lin";
+  const initials =
+    displayName
+      .split(" ")
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "AL";
+
   return (
     <header className="topbar select-none">
       <div className="mobile-brand">
@@ -45,7 +58,7 @@ export function TopNav({
         </button>
 
         <button className="mobile-avatar" onClick={onSettings} aria-label="Open settings">
-          AL
+          {initials}
         </button>
       </div>
     </header>

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Sidebar, type NavPage } from "./sidebar";
+import { Sidebar, type NavPage, type UserProfile } from "./sidebar";
 import { TopNav } from "./top-nav";
 import { MobileNav } from "./mobile-nav";
 
@@ -13,6 +13,9 @@ interface AppShellProps {
   onSearch: () => void;
   exploreCount?: number;
   onSelectCollection?: (name: string) => void;
+  userProfile?: UserProfile;
+  theme?: "light" | "dark";
+  onTheme?: () => void;
 }
 
 export function AppShell({
@@ -23,8 +26,13 @@ export function AppShell({
   onSearch,
   exploreCount = 7,
   onSelectCollection,
+  userProfile,
+  theme: controlledTheme,
+  onTheme: controlledOnTheme,
 }: AppShellProps) {
-  const [theme, setTheme] = React.useState<"light" | "dark">("light");
+  const [internalTheme, setInternalTheme] = React.useState<"light" | "dark">("light");
+
+  const theme = controlledTheme ?? internalTheme;
 
   // Synchronize theme with localStorage and document class
   React.useEffect(() => {
@@ -34,7 +42,7 @@ export function AppShell({
       const savedTheme = localStorage.getItem("devvault-theme") as "light" | "dark" | null;
       const activeTheme = urlTheme || savedTheme || "light";
 
-      setTheme(activeTheme);
+      setInternalTheme(activeTheme);
       if (activeTheme === "dark") {
         document.documentElement.classList.add("dark");
         document.documentElement.classList.remove("light");
@@ -46,7 +54,11 @@ export function AppShell({
   }, []);
 
   const handleToggleTheme = React.useCallback(() => {
-    setTheme((prev) => {
+    if (controlledOnTheme) {
+      controlledOnTheme();
+      return;
+    }
+    setInternalTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";
       try {
         localStorage.setItem("devvault-theme", next);
@@ -60,7 +72,7 @@ export function AppShell({
       } catch {}
       return next;
     });
-  }, []);
+  }, [controlledOnTheme]);
 
   // Keyboard shortcuts: 'C' for capture, '⌘ K' / 'Ctrl+K' for search
   React.useEffect(() => {
@@ -95,6 +107,7 @@ export function AppShell({
         onCapture={onCapture}
         exploreCount={exploreCount}
         onSelectCollection={onSelectCollection}
+        userProfile={userProfile}
       />
       <div className="app-column">
         <TopNav
@@ -103,6 +116,7 @@ export function AppShell({
           onSearch={onSearch}
           onSettings={() => onPage("settings")}
           onActivity={() => onPage("activity")}
+          userProfile={userProfile}
         />
         <main>{children}</main>
       </div>
