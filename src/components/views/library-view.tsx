@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt } from "@/components/resources/resource-art";
 import { FigmaResource } from "@/data/figmaResources";
+import { matchResource } from "@/lib/search/search-matcher";
+import { resourceService } from "@/services/resource-service";
 
 type ViewMode = "grid" | "list";
 type SortOption = "recent" | "oldest" | "title";
@@ -16,6 +18,7 @@ interface LibraryViewProps {
   onOpenResource: (resource: FigmaResource) => void;
   onToggleBookmark?: (id: number) => void;
   onToast?: (message: string) => void;
+  userId?: string | null;
 }
 
 export function LibraryView({
@@ -26,12 +29,20 @@ export function LibraryView({
   onOpenResource,
   onToggleBookmark,
   onToast,
+  userId,
 }: LibraryViewProps) {
   const [view, setView] = useState<ViewMode>("grid");
   const [filter, setFilter] = useState("All");
   const [sortOrder, setSortOrder] = useState<SortOption>("recent");
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+
+  // Search state management
+  const [isSearching, setIsSearching] = useState(false);
+  const [isOfflineOrError, setIsOfflineOrError] = useState(false);
+  const [remoteResults, setRemoteResults] = useState<FigmaResource[] | null>(null);
+  const searchSeqRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const baseFilterOptions = ["All", "GitHub", "YouTube", "Article", "Documentation"];
   const moreFilterOptions = ["Instagram", "Motion"];
@@ -48,39 +59,111 @@ export function LibraryView({
     onToast?.("URL copied to clipboard");
   };
 
-  const visible = useMemo(() => {
-    const filtered = resources.filter((resource) => {
-      const q = query.toLowerCase();
-      const matchesQuery =
-        !q ||
-        resource.title.toLowerCase().includes(q) ||
-        resource.description.toLowerCase().includes(q) ||
-        resource.category.toLowerCase().includes(q) ||
-        resource.domain.toLowerCase().includes(q) ||
-        (resource.collection && resource.collection.toLowerCase().includes(q)) ||
-        (resource.tags && resource.tags.some((t) => t.toLowerCase().includes(q)));
+  // Debounced server search effect
+  useEffect(() => {
+    const cleanQ = query.trim();
 
+    if (!cleanQ || !userId) {
+      setRemoteResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setIsOfflineOrError(false);
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    const seq = ++searchSeqRef.current;
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await resourceService.searchResources(userId, {
+          query: cleanQ,
+          platform: filter !== "All" ? filter : undefined,
+          signal: abortController.signal,
+        });
+
+        if (seq === searchSeqRef.current && !abortController.signal.aborted) {
+          setRemoteResults(results);
+          setIsSearching(false);
+        }
+      } catch (err: any) {
+        if (seq === searchSeqRef.current && !abortController.signal.aborted) {
+          setIsSearching(false);
+          setIsOfflineOrError(true);
+        }
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [query, filter, userId]);
+
+  const sortResources = (list: FigmaResource[], order: SortOption) => {
+    return [...list].sort((a, b) => {
+      if (order === "recent") {
+        return b.id - a.id;
+      }
+      if (order === "oldest") {
+        return a.id - b.id;
+      }
+      if (order === "title") {
+        return a.title.localeCompare(b.title);
+      }
+      return 0;
+    });
+  };
+
+  const visible = useMemo(() => {
+    // If no query string, filter by source/kind only
+    if (!query.trim()) {
+      const filtered = resources.filter((resource) => {
+        return (
+          filter === "All" ||
+          resource.source.toLowerCase() === filter.toLowerCase() ||
+          resource.kind.toLowerCase() === filter.toLowerCase()
+        );
+      });
+      return sortResources(filtered, sortOrder);
+    }
+
+    // 1. Instant local matching across Title, Description, Notes, URL, Tags, Platform, Collection
+    const localMatches = resources.filter((resource) => {
       const matchesFilter =
         filter === "All" ||
         resource.source.toLowerCase() === filter.toLowerCase() ||
         resource.kind.toLowerCase() === filter.toLowerCase();
 
-      return matchesQuery && matchesFilter;
+      return matchesFilter && matchResource(resource, query);
     });
 
-    return [...filtered].sort((a, b) => {
-      if (sortOrder === "recent") {
-        return b.id - a.id;
+    // 2. If remote search returns additional unique resources, enrich results
+    let combined = localMatches;
+    if (remoteResults && remoteResults.length > 0) {
+      const localIds = new Set(localMatches.map((r) => r.id));
+      const localRemoteIds = new Set(
+        localMatches.map((r) => r.remoteId).filter(Boolean)
+      );
+
+      const additional = remoteResults.filter(
+        (r) =>
+          !localIds.has(r.id) &&
+          (!r.remoteId || !localRemoteIds.has(r.remoteId))
+      );
+      if (additional.length > 0) {
+        combined = [...localMatches, ...additional];
       }
-      if (sortOrder === "oldest") {
-        return a.id - b.id;
-      }
-      if (sortOrder === "title") {
-        return a.title.localeCompare(b.title);
-      }
-      return 0;
-    });
-  }, [resources, query, filter, sortOrder]);
+    }
+
+    return sortResources(combined, sortOrder);
+  }, [resources, query, filter, sortOrder, remoteResults]);
 
   const getSourceShort = (kind: FigmaResource["kind"]) => {
     switch (kind) {
@@ -115,20 +198,47 @@ export function LibraryView({
       </header>
 
       {/* Search Bar */}
-      <div className="library-search">
+      <div className={`library-search ${isSearching ? "is-loading" : ""}`}>
         <Icon name="search" />
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              if (query) {
+                onQueryChange("");
+              } else {
+                (event.target as HTMLInputElement).blur();
+              }
+            }
+          }}
           placeholder="Search titles, notes, tags or sources..."
           aria-label="Search resources"
         />
+        {isSearching && (
+          <span className="search-spinner" aria-label="Searching...">
+            <svg
+              className="animate-spin"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{ color: "var(--accent)" }}
+            >
+              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+              <path d="M12 2a10 10 0 0 1 10 10" />
+            </svg>
+          </span>
+        )}
         {query && (
           <button onClick={() => onQueryChange("")} aria-label="Clear search" type="button">
             <Icon name="x" size={15} />
           </button>
         )}
         <kbd>⌘ K</kbd>
+        {isSearching && <div className="library-search-shimmer" aria-hidden="true" />}
       </div>
 
       {/* Library Tools & Controls */}
@@ -374,7 +484,11 @@ export function LibraryView({
             <Icon name="search" />
           </span>
           <h2>Nothing found for “{query}”</h2>
-          <p>Try another phrase or clear the active filters.</p>
+          <p>
+            {isOfflineOrError
+              ? "Searched local vault. Check your cloud connection or try another phrase."
+              : "Try another phrase, search by personal notes or tags, or clear the active filters."}
+          </p>
           <button
             onClick={() => {
               onQueryChange("");

@@ -2,6 +2,20 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
 import { type ResourceRow } from "@/lib/supabase/types";
 import { FigmaResource } from "@/data/figmaResources";
 import { ResourceKind } from "@/components/resources/resource-art";
+import {
+  searchResources as searchMatcherResources,
+  SearchMatchOptions,
+} from "@/lib/search/search-matcher";
+
+export interface SearchResourceCriteria {
+  query?: string;
+  platform?: string;
+  category?: string;
+  status?: string;
+  collection?: string;
+  tag?: string;
+  signal?: AbortSignal;
+}
 
 const LOCAL_STORAGE_KEY = "devvault-local-resources";
 
@@ -149,6 +163,209 @@ export const resourceService = {
         if (raw) return JSON.parse(raw);
       } catch {}
       return [];
+    }
+  },
+
+  // Local cache search fallback using normalized search-matcher
+  searchLocalCache(criteria?: SearchResourceCriteria): FigmaResource[] {
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const list: FigmaResource[] = raw ? JSON.parse(raw) : [];
+      return searchMatcherResources(list, criteria?.query, {
+        platform: criteria?.platform,
+        status: criteria?.status,
+        category: criteria?.category,
+        collection: criteria?.collection,
+        tag: criteria?.tag,
+      });
+    } catch {
+      return [];
+    }
+  },
+
+  // Dedicated search service supporting Supabase RLS, AbortSignal, and local fallback
+  async searchResources(
+    userId?: string | null,
+    criteria?: SearchResourceCriteria
+  ): Promise<FigmaResource[]> {
+    const supabase = getBrowserSupabase();
+
+    // 1. Fallback immediately if unauthenticated or no Supabase client
+    if (!supabase || !userId) {
+      return this.searchLocalCache(criteria);
+    }
+
+    if (criteria?.signal?.aborted) {
+      return [];
+    }
+
+    const cleanQ = (criteria?.query || "").trim();
+
+    // If query is empty and no specific filters, use fetchResources
+    if (
+      !cleanQ &&
+      (!criteria?.platform || criteria.platform === "All") &&
+      (!criteria?.category || criteria.category === "All") &&
+      (!criteria?.status || criteria.status === "All") &&
+      !criteria?.collection &&
+      !criteria?.tag
+    ) {
+      return this.fetchResources(userId);
+    }
+
+    try {
+      // 2. Try the PostgreSQL search RPC function if available (from 007_search_indexes.sql)
+      try {
+        let rpcBuilder = (supabase.rpc as any)("search_user_resources", {
+          search_query: cleanQ || null,
+          filter_platform:
+            criteria?.platform && criteria.platform !== "All"
+              ? criteria.platform
+              : null,
+          filter_category:
+            criteria?.category && criteria.category !== "All"
+              ? criteria.category
+              : null,
+          filter_status:
+            criteria?.status && criteria.status !== "All"
+              ? criteria.status
+              : null,
+        });
+
+        if (criteria?.signal && typeof (rpcBuilder as any).abortSignal === "function") {
+          rpcBuilder = (rpcBuilder as any).abortSignal(criteria.signal);
+        }
+
+        const { data: rpcRows, error: rpcError } = await rpcBuilder;
+
+        if (!rpcError && Array.isArray(rpcRows)) {
+          const resourceIds = rpcRows.map((r: any) => r.id);
+          if (resourceIds.length === 0) return [];
+
+          let junctionQuery = supabase
+            .from("resources")
+            .select(`
+              id,
+              resource_tags ( tags ( name ) ),
+              collection_resources ( collections ( name ) )
+            `)
+            .in("id", resourceIds)
+            .eq("user_id", userId);
+
+          if (criteria?.signal && typeof (junctionQuery as any).abortSignal === "function") {
+            junctionQuery = (junctionQuery as any).abortSignal(criteria.signal);
+          }
+
+          const { data: junctionRows } = await junctionQuery;
+          const junctionMap = new Map<string, { tags: string[]; colName?: string }>();
+          if (junctionRows) {
+            for (const jr of junctionRows as any[]) {
+              const tags = (jr.resource_tags || [])
+                .map((t: any) => t.tags?.name)
+                .filter(Boolean);
+              const colName = jr.collection_resources?.[0]?.collections?.name;
+              junctionMap.set(jr.id, { tags, colName });
+            }
+          }
+
+          let mapped = rpcRows.map((r: any) => {
+            const j = junctionMap.get(r.id);
+            return mapRowToFigmaResource(r, j?.tags || [], j?.colName);
+          });
+
+          if (criteria?.collection) {
+            mapped = mapped.filter(
+              (r) =>
+                r.collection?.toLowerCase() === criteria.collection!.toLowerCase()
+            );
+          }
+          if (criteria?.tag) {
+            mapped = mapped.filter((r) =>
+              (r.tags || []).some(
+                (t) => t.toLowerCase() === criteria.tag!.toLowerCase()
+              )
+            );
+          }
+
+          return mapped;
+        }
+      } catch {
+        // Fallback to PostgREST query if RPC function is not installed
+      }
+
+      if (criteria?.signal?.aborted) return [];
+
+      // 3. Fallback PostgREST query with RLS enforcement
+      let queryBuilder = supabase
+        .from("resources")
+        .select(`
+          *,
+          resource_tags (
+            tags ( name )
+          ),
+          collection_resources (
+            collections ( name )
+          )
+        `)
+        .eq("user_id", userId);
+
+      if (criteria?.signal && typeof (queryBuilder as any).abortSignal === "function") {
+        queryBuilder = (queryBuilder as any).abortSignal(criteria.signal);
+      }
+
+      if (criteria?.platform && criteria.platform !== "All") {
+        queryBuilder = queryBuilder.ilike("platform", criteria.platform);
+      }
+      if (criteria?.category && criteria.category !== "All") {
+        queryBuilder = queryBuilder.ilike("category", criteria.category);
+      }
+      if (criteria?.status && criteria.status !== "All") {
+        queryBuilder = queryBuilder.ilike("status", criteria.status);
+      }
+
+      if (cleanQ) {
+        const sanitized = cleanQ.replace(/[%_,]/g, " ").trim();
+        if (sanitized) {
+          queryBuilder = queryBuilder.or(
+            `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,personal_notes.ilike.%${sanitized}%,original_url.ilike.%${sanitized}%,source_domain.ilike.%${sanitized}%`
+          );
+        }
+      }
+
+      const { data: rows, error } = await queryBuilder.order("created_at", {
+        ascending: false,
+      });
+
+      if (error) {
+        if (criteria?.signal?.aborted) return [];
+        throw error;
+      }
+
+      let results: FigmaResource[] = (rows || []).map((r: any) => {
+        const tags = (r.resource_tags || [])
+          .map((rt: any) => rt.tags?.name)
+          .filter(Boolean);
+        const colName = r.collection_resources?.[0]?.collections?.name;
+        return mapRowToFigmaResource(r, tags, colName);
+      });
+
+      if (cleanQ) {
+        results = searchMatcherResources(results, cleanQ, {
+          platform: criteria?.platform,
+          status: criteria?.status,
+          category: criteria?.category,
+          collection: criteria?.collection,
+          tag: criteria?.tag,
+        });
+      }
+
+      return results;
+    } catch (err: any) {
+      if (criteria?.signal?.aborted || err?.name === "AbortError") {
+        return [];
+      }
+      console.warn("searchResources error, falling back to local storage:", err);
+      return this.searchLocalCache(criteria);
     }
   },
 

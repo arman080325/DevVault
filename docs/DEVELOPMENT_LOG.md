@@ -577,3 +577,41 @@ Phase 01.8 was commissioned to fix undersized typography, repair interactive dro
    - ESLint: 0 warnings, 0 errors (`npm run lint`).
    - Next.js production build: 5/5 static pages generated + dynamic `/api/metadata/extract` endpoint (code 0).
    - Next.js live dev server running on `http://localhost:3000`.
+
+---
+
+## [Phase 02.4.1] — Global Search Engine Architecture & Implementation
+**Date:** November 19, 2026
+**Branch:** `feat/phase-02-4-global-search`
+**Checkpoint Base:** `ae0ec11`
+
+### Key Implementations:
+1. **Search Matcher Engine (`src/lib/search/search-matcher.ts`):**
+   - Built a zero-dependency, normalized search tokenizer and scoring engine.
+   - Evaluates all 8 dimensions: Title, Description, Notes, URL & Path, Platform/Source, Category, Tags, and Collection names.
+   - Fixed critical bug where personal notes were omitted from search despite UI placeholder promises.
+   - Fixed critical bug where original URLs and repository paths were omitted from search.
+   - Added multi-term AND token matching, case-insensitivity, and technical punctuation preservation (`next.js`, `c++`, `ui/ux`).
+   - Weighted relevancy scoring: Title (100) > Tags (45) > Collection (40) > Category (35) > Source/URL (30) > Notes (20) > Description (15).
+2. **Search Service & Persistence Integration (`src/services/resource-service.ts`):**
+   - Implemented `searchResources(userId, criteria)` supporting user tenancy and PostgreSQL Row Level Security (RLS).
+   - Integrated `AbortSignal` cancellation for immediate in-flight request termination.
+   - Implemented dual-path execution: attempts PostgreSQL `search_user_resources` RPC, with seamless fallback to PostgREST `.or(...)` queries and in-memory multi-field matching.
+   - Implemented offline/demo cache fallback (`searchLocalCache`) guaranteeing 100% search parity when unauthenticated or disconnected.
+3. **Database Full-Text Search Schema (`supabase/migrations/007_search_indexes.sql`):**
+   - Added generated `search_vector tsvector` column combining Title (A), Category/Platform (B), Description/Notes (C), and Domain/URL (D).
+   - Added GIN index `idx_resources_search_vector` for sub-millisecond retrieval.
+   - Created `search_user_resources` RPC with `SECURITY INVOKER`, explicit `auth.uid() = user_id` boundary, and relational `EXISTS` queries for tags and collections.
+4. **Library View UI Polish & Loading Feedback (`src/components/views/library-view.tsx`):**
+   - Tiered search architecture: 0ms instant local match over loaded resources + 300ms debounced server search for deep vault retrieval.
+   - Added `searchSeqRef` guard preventing out-of-order responses from overwriting newer results.
+   - Added discreet 2px accent loading shimmer (`.library-search-shimmer`) during active searches.
+   - Added Escape key handler to clear active query or blur input.
+   - Enhanced empty state with clear offline/online guidance and one-click search clearing.
+5. **Automated Verification & Quality Assurance:**
+   - Authored comprehensive test suite `scripts/verify-phase-02-4-search.js` (**49/49 assertions passed, 100%**).
+   - Full regression across all phases: **291/291 assertions passed**.
+   - TypeScript strict check: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: 5/5 static pages + dynamic route compiled successfully (code 0).
+   - Chrome DevTools (CDP) headless browser validation for desktop (light/dark) and mobile viewports.

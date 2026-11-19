@@ -770,6 +770,7 @@ function DashboardContent() {
           onOpenResource={setSelectedResource}
           onToggleBookmark={handleToggleBookmark}
           onToast={showToast}
+          userId={authUser?.id || null}
         />
       )}
 

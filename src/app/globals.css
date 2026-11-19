@@ -1113,6 +1113,21 @@ html.dark .sidebar-capture {
   border: 1px solid var(--rule);
   background: var(--raised);
   border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.library-search-shimmer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: search-shimmer 1.2s infinite;
+}
+@keyframes search-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 .library-search > svg {
   color: var(--accent);
