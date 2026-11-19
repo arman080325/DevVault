@@ -615,3 +615,40 @@ Phase 01.8 was commissioned to fix undersized typography, repair interactive dro
    - ESLint: 0 warnings, 0 errors (`npm run lint`).
    - Next.js production build: 5/5 static pages + dynamic route compiled successfully (code 0).
    - Chrome DevTools (CDP) headless browser validation for desktop (light/dark) and mobile viewports.
+
+---
+
+## [Phase 02.4.2] — Advanced Filtering Engine & Responsive UI Implementation
+**Date:** November 20, 2026
+**Branch:** `feat/phase-02-4-advanced-filtering`
+**Checkpoint Base:** `88c1cd68f5f4863285a8af1a9553b3673467a419`
+
+### Key Implementations:
+1. **Search Matcher Engine (`src/lib/search/search-matcher.ts`):**
+   - Extended `SearchMatchOptions` with multi-tag array (`tags`), collection, bookmark state (`bookmarked`), flags (`pinned`, `favorite`), date presets (`"all"`, `"today"`, `"7d"`, `"30d"`, `"year"`), and custom boundaries (`dateFrom`, `dateTo`).
+   - Implemented strict relational AND matching for multi-tag selections.
+   - Built `resolveDatePresetBoundaries()` computing exact date thresholds.
+   - Added `evaluateResourceOptions()` and combined multi-dimensional filtering.
+2. **Database Migration (`supabase/migrations/008_advanced_filtering.sql`):**
+   - Created helper indexes for relational performance: `idx_res_tags_resource_id`, `idx_tags_name_lower`, `idx_collections_name_lower`.
+   - Dropped previous 4-arg function signature to eliminate PostgREST resolution ambiguity (`PGRST204`).
+   - Extended `public.search_user_resources` with 11 parameters defaulted to `NULL`.
+   - Enforced `SECURITY INVOKER` and user RLS scoping `WHERE r.user_id = auth.uid()`.
+   - Added relational multi-tag AND count subquery and bookmark filtering.
+3. **Resource Service Integration (`src/services/resource-service.ts`):**
+   - Updated `SearchResourceCriteria` and dispatched all 11 parameters to `search_user_resources`.
+   - Handled `AbortSignal` strictly at client boundary without passing into SQL parameters.
+   - Preserved instant local/demo cache search parity via `searchLocalCache`.
+   - Updated PostgREST fallback to query `is_favorite` and `is_pinned` columns.
+4. **Library View UI Polish & Responsive Filters (`src/components/views/library-view.tsx`):**
+   - Connected `collections` prop passed from `page.tsx`.
+   - Added desktop Filter Popover and mobile Bottom Sheet with backdrop (`.filter-backdrop`).
+   - Added dynamic filter count badge on trigger button.
+   - Implemented dismissible Active Filters Bar (`.active-filters-bar`) with individual `×` chips and "Clear all" link.
+   - Updated dynamic results counter and zero-result empty state.
+5. **Quality Assurance & Verification:**
+   - Authored test suite `scripts/verify-phase-02-4-2-filters.js` (**37/37 assertions passed, 100%**).
+   - TypeScript strict check: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: 5/5 static pages + dynamic route compiled successfully (code 0).
+   - Headless Chrome CDP validation for desktop (light/dark) and mobile bottom sheet viewports.

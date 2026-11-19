@@ -5,6 +5,7 @@ import { ResourceKind } from "@/components/resources/resource-art";
 import {
   searchResources as searchMatcherResources,
   SearchMatchOptions,
+  resolveDatePresetBoundaries,
 } from "@/lib/search/search-matcher";
 
 export interface SearchResourceCriteria {
@@ -14,6 +15,13 @@ export interface SearchResourceCriteria {
   status?: string;
   collection?: string;
   tag?: string;
+  tags?: string[];
+  favorite?: boolean;
+  pinned?: boolean;
+  bookmarked?: boolean;
+  dateFrom?: string | Date;
+  dateTo?: string | Date;
+  datePreset?: "all" | "today" | "7d" | "30d" | "year";
   signal?: AbortSignal;
 }
 
@@ -75,6 +83,7 @@ export function mapRowToFigmaResource(
     pinned: row.is_pinned,
     favorite: row.is_favorite,
     imageUrl: row.thumbnail_url || undefined,
+    createdAt: row.created_at,
   };
 }
 
@@ -177,6 +186,13 @@ export const resourceService = {
         category: criteria?.category,
         collection: criteria?.collection,
         tag: criteria?.tag,
+        tags: criteria?.tags,
+        favorite: criteria?.favorite,
+        pinned: criteria?.pinned,
+        bookmarked: criteria?.bookmarked,
+        dateFrom: criteria?.dateFrom,
+        dateTo: criteria?.dateTo,
+        datePreset: criteria?.datePreset,
       });
     } catch {
       return [];
@@ -201,22 +217,51 @@ export const resourceService = {
 
     const cleanQ = (criteria?.query || "").trim();
 
-    // If query is empty and no specific filters, use fetchResources
-    if (
-      !cleanQ &&
-      (!criteria?.platform || criteria.platform === "All") &&
-      (!criteria?.category || criteria.category === "All") &&
-      (!criteria?.status || criteria.status === "All") &&
-      !criteria?.collection &&
-      !criteria?.tag
-    ) {
+    // Normalize tags
+    const combinedTags: string[] = [];
+    if (Array.isArray(criteria?.tags) && criteria.tags.length > 0) {
+      combinedTags.push(...criteria.tags.filter(Boolean));
+    }
+    if (criteria?.tag && !combinedTags.includes(criteria.tag)) {
+      combinedTags.push(criteria.tag);
+    }
+
+    // Resolve date preset boundaries
+    const dateBoundaries = resolveDatePresetBoundaries(criteria?.datePreset);
+    const resolvedFrom = criteria?.dateFrom
+      ? new Date(criteria.dateFrom).toISOString()
+      : dateBoundaries.dateFrom
+      ? dateBoundaries.dateFrom.toISOString()
+      : null;
+    const resolvedTo = criteria?.dateTo
+      ? new Date(criteria.dateTo).toISOString()
+      : dateBoundaries.dateTo
+      ? dateBoundaries.dateTo.toISOString()
+      : null;
+
+    // If query is empty and no specific filters are active, use fetchResources
+    const hasActiveFilters = Boolean(
+      cleanQ ||
+      (criteria?.platform && criteria.platform !== "All") ||
+      (criteria?.category && criteria.category !== "All") ||
+      (criteria?.status && criteria.status !== "All") ||
+      (criteria?.collection && criteria.collection !== "All") ||
+      combinedTags.length > 0 ||
+      typeof criteria?.favorite === "boolean" ||
+      typeof criteria?.pinned === "boolean" ||
+      typeof criteria?.bookmarked === "boolean" ||
+      resolvedFrom ||
+      resolvedTo
+    );
+
+    if (!hasActiveFilters) {
       return this.fetchResources(userId);
     }
 
     try {
-      // 2. Try the PostgreSQL search RPC function if available (from 007_search_indexes.sql)
+      // 2. Try the PostgreSQL search RPC function if available (from 008_advanced_filtering.sql / 007_search_indexes.sql)
       try {
-        let rpcBuilder = (supabase.rpc as any)("search_user_resources", {
+        const rpcParams: Record<string, any> = {
           search_query: cleanQ || null,
           filter_platform:
             criteria?.platform && criteria.platform !== "All"
@@ -230,7 +275,22 @@ export const resourceService = {
             criteria?.status && criteria.status !== "All"
               ? criteria.status
               : null,
-        });
+          filter_collection:
+            criteria?.collection && criteria.collection !== "All"
+              ? criteria.collection
+              : null,
+          filter_tags: combinedTags.length > 0 ? combinedTags : null,
+          filter_favorite:
+            typeof criteria?.favorite === "boolean" ? criteria.favorite : null,
+          filter_pinned:
+            typeof criteria?.pinned === "boolean" ? criteria.pinned : null,
+          filter_date_from: resolvedFrom,
+          filter_date_to: resolvedTo,
+          filter_bookmarked:
+            typeof criteria?.bookmarked === "boolean" ? criteria.bookmarked : null,
+        };
+
+        let rpcBuilder = (supabase.rpc as any)("search_user_resources", rpcParams);
 
         if (criteria?.signal && typeof (rpcBuilder as any).abortSignal === "function") {
           rpcBuilder = (rpcBuilder as any).abortSignal(criteria.signal);
@@ -273,24 +333,36 @@ export const resourceService = {
             return mapRowToFigmaResource(r, j?.tags || [], j?.colName);
           });
 
-          if (criteria?.collection) {
-            mapped = mapped.filter(
-              (r) =>
-                r.collection?.toLowerCase() === criteria.collection!.toLowerCase()
-            );
-          }
-          if (criteria?.tag) {
-            mapped = mapped.filter((r) =>
-              (r.tags || []).some(
-                (t) => t.toLowerCase() === criteria.tag!.toLowerCase()
-              )
-            );
+          // In case the deployed RPC was Migration 007 without advanced filters,
+          // apply defensive client-side matcher pass if any advanced filter was requested
+          if (
+            criteria?.collection ||
+            combinedTags.length > 0 ||
+            typeof criteria?.favorite === "boolean" ||
+            typeof criteria?.pinned === "boolean" ||
+            typeof criteria?.bookmarked === "boolean" ||
+            resolvedFrom ||
+            resolvedTo
+          ) {
+            mapped = searchMatcherResources(mapped, cleanQ, {
+              platform: criteria?.platform,
+              status: criteria?.status,
+              category: criteria?.category,
+              collection: criteria?.collection,
+              tag: criteria?.tag,
+              tags: combinedTags,
+              favorite: criteria?.favorite,
+              pinned: criteria?.pinned,
+              bookmarked: criteria?.bookmarked,
+              dateFrom: resolvedFrom || undefined,
+              dateTo: resolvedTo || undefined,
+            });
           }
 
           return mapped;
         }
       } catch {
-        // Fallback to PostgREST query if RPC function is not installed
+        // Fallback to PostgREST query if RPC function is not installed or fails
       }
 
       if (criteria?.signal?.aborted) return [];
@@ -322,6 +394,21 @@ export const resourceService = {
       if (criteria?.status && criteria.status !== "All") {
         queryBuilder = queryBuilder.ilike("status", criteria.status);
       }
+      if (typeof criteria?.favorite === "boolean") {
+        queryBuilder = queryBuilder.eq("is_favorite", criteria.favorite);
+      }
+      if (typeof criteria?.pinned === "boolean") {
+        queryBuilder = queryBuilder.eq("is_pinned", criteria.pinned);
+      }
+      if (criteria?.bookmarked === true) {
+        queryBuilder = queryBuilder.or("is_favorite.eq.true,is_pinned.eq.true");
+      }
+      if (resolvedFrom) {
+        queryBuilder = queryBuilder.gte("created_at", resolvedFrom);
+      }
+      if (resolvedTo) {
+        queryBuilder = queryBuilder.lte("created_at", resolvedTo);
+      }
 
       if (cleanQ) {
         const sanitized = cleanQ.replace(/[%_,]/g, " ").trim();
@@ -349,15 +436,20 @@ export const resourceService = {
         return mapRowToFigmaResource(r, tags, colName);
       });
 
-      if (cleanQ) {
-        results = searchMatcherResources(results, cleanQ, {
-          platform: criteria?.platform,
-          status: criteria?.status,
-          category: criteria?.category,
-          collection: criteria?.collection,
-          tag: criteria?.tag,
-        });
-      }
+      // Apply client-side searchMatcherResources for high-precision multi-tag AND, collections, and relevance
+      results = searchMatcherResources(results, cleanQ, {
+        platform: criteria?.platform,
+        status: criteria?.status,
+        category: criteria?.category,
+        collection: criteria?.collection,
+        tag: criteria?.tag,
+        tags: combinedTags,
+        favorite: criteria?.favorite,
+        pinned: criteria?.pinned,
+        bookmarked: criteria?.bookmarked,
+        dateFrom: resolvedFrom || undefined,
+        dateTo: resolvedTo || undefined,
+      });
 
       return results;
     } catch (err: any) {

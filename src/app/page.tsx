@@ -764,6 +764,7 @@ function DashboardContent() {
       {page === "library" && (
         <LibraryView
           resources={resources}
+          collections={collections}
           query={searchQuery}
           onQueryChange={setSearchQuery}
           onCapture={() => setIsCaptureOpen(true)}
