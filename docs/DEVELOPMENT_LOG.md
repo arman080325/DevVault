@@ -503,3 +503,77 @@ Phase 01.8 was commissioned to fix undersized typography, repair interactive dro
    - ESLint: 0 warnings, 0 errors (`npm run lint`).
    - Next.js production build: dynamic route `/api/metadata/extract` recognized and compiled (`npm run build`).
    - Next.js live dev server running on `http://localhost:3000`.
+---
+
+## [Phase 02.3.2] — Specialized Platform Metadata Providers
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-3-smart-metadata`  
+**Checkpoint Base:** `dbf023f`  
+
+### Key Implementations:
+1. **Reusable Secure oEmbed Layer (`oembed.client.ts`):**
+   - Curated whitelist of trusted oEmbed endpoints (`www.youtube.com`, `graph.facebook.com`).
+   - Strict response schema validation (`title`, `author_name`, `thumbnail_url`, `provider_name`, `type`).
+   - Embedded HTML isolation: treated strictly as unexecuted string data.
+   - Media URL sanitization blocking `javascript:` and `data:` schemes.
+2. **Safe JSON HTTP Fetcher (`safe-fetch.ts`):**
+   - Implemented `safeFetchJson<T>` with connection-level IP pinning (`undici.buildConnector`).
+   - Enforced JSON Content-Type validation and 512KB response body size limit.
+3. **YouTube Metadata Provider (`youtube.provider.ts` — Priority: 20):**
+   - Supports `youtube.com/watch`, `youtu.be/`, `/shorts/`, `/embed/`, `/live/` with strict 11-char video ID validation.
+   - Primary extraction via official public YouTube oEmbed endpoint.
+   - Canonical URL normalization (`https://www.youtube.com/watch?v={id}`).
+   - Fallback to universal website HTML parsing and optional `YOUTUBE_API_KEY` enrichment.
+4. **GitHub Metadata Provider (`github.provider.ts` — Priority: 30):**
+   - Supports `github.com/{owner}/{repo}` with strict alphanumeric/hyphen/period segment validation.
+   - Primary extraction via public GitHub REST API (`api.github.com/repos/{owner}/{repo}`).
+   - Context-aware sub-resource protection: issues, pull requests, releases, and code trees are identified with distinct content types and explicit warnings rather than misrepresenting repository details.
+   - Rate limit handling (403/429) with seamless website HTML fallback. Optional `GITHUB_TOKEN` support.
+5. **Instagram Metadata Provider (`instagram.provider.ts` — Priority: 15):**
+   - Supports posts, reels, and TV links with alphanumeric shortcode extraction.
+   - Server-side optional Meta API token integration (`META_APP_TOKEN` / `INSTAGRAM_APP_TOKEN`).
+   - Compliant fallback: handles login walls by returning `manual_required` status with clear user guidance. Zero scraping or bot bypass.
+6. **Extractor Pipeline & Priority Merging (`extractor.ts`):**
+   - Registered providers in priority order: GitHub (30) > YouTube (20) > Instagram (15) > Website (0).
+   - Implemented `mergeMetadata` with strict precedence (never overwriting non-empty fields with null/empty).
+7. **Automated Verification & Quality Assurance:**
+   - Expanded test suite `scripts/verify-phase-02-3-metadata.js` (**164/164 tests passed, 100%**).
+   - TypeScript strict compile: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: dynamic route `/api/metadata/extract` recognized and compiled (`npm run build`).
+   - Next.js live dev server running on `http://localhost:3000`.
+
+---
+
+## [Phase 02.3.3] — Quick Capture UI Integration & Persistence
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-3-smart-metadata`  
+**Checkpoint Base:** `dbf023f`  
+
+### Key Implementations:
+1. **Live Debounced Extraction & Concurrency Protection:**
+   - Connected Quick Capture (`quick-capture-modal.tsx`) to `POST /api/metadata/extract` with a 500ms debounce.
+   - Guarded against race conditions and stale out-of-order responses using `requestIdRef` and `AbortController`.
+   - Clears stale metadata and preview images immediately when the URL changes.
+2. **Field-Level Mapping & Editorial Typography:**
+   - Mapped `NormalizedMetadata` fields cleanly into `FigmaResource` (`title`, `description`, `imageUrl`, `domain`, `source`, `category`, `status`, `collection`, `tags`, `notes`).
+   - Made preview title directly editable with `Newsreader` serif styling matching the approved Figma design (`.capture-title-input`).
+   - Made preview description directly editable with matching typography (`.capture-desc-input`).
+   - Connected `ResourceArt` to live image URLs for rich Open Graph, YouTube thumbnail, and GitHub preview rendering.
+3. **Shelf / Collection & Tag Management:**
+   - Integrated shelf/collection selection dropdown using user collections passed via the `collections` prop, with clean `"None (Unassigned)"` support.
+   - Built interactive tag chip editor supporting one-click removal, Enter/comma tag creation, automatic deduplication, and platform tag recommendations (`GitHub`, `Video`).
+4. **Authentication & Session Expiration Feedback:**
+   - Passed user session token (`Authorization: Bearer <token>`) when available.
+   - Handled 401 status gracefully: displayed clear session-expiration notice to authenticated users (*"Session expired. Please log in again to sync, or save locally."*) while allowing smooth local saving.
+   - Handled rate limit (429) and login-wall (`manual_required`) responses with clear user feedback.
+5. **Double-Submission Prevention & Persistence:**
+   - Enforced `isSubmittingRef` guard preventing concurrent duplicate submissions.
+   - Preserved Supabase PostgreSQL persistence (RLS enforcement, `activity_events` logging, tag junction tables, collection linking) with automatic local storage sync.
+6. **Automated Verification & Quality Assurance:**
+   - Authored test suite `scripts/verify-phase-02-3-capture.js` (**30/30 tests passed, 100%**).
+   - Full Phase 02.3 automated assertion count: **194/194 passed (100%)**.
+   - TypeScript strict check: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: 5/5 static pages generated + dynamic `/api/metadata/extract` endpoint (code 0).
+   - Next.js live dev server running on `http://localhost:3000`.

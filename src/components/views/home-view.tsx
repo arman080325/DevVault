@@ -27,7 +27,7 @@ export function HomeView({
 }: HomeViewProps) {
   const firstName = userProfile?.name?.trim()?.split(" ")[0] || "Alex";
   const continueResource = resources.find((r) => r.status === "Exploring") || resources[0];
-  const recentResources = resources.slice(1, 5);
+  const recentResources = resources.filter((r) => r.id !== continueResource?.id).slice(0, 4);
 
   const getSourceShort = (kind: FigmaResource["kind"]) => {
     switch (kind) {

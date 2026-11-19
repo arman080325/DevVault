@@ -1,5 +1,5 @@
 /**
- * DevVault — Phase 02.3.1 Verification Test Suite
+ * DevVault — Phase 02.3.1 & Phase 02.3.2 Verification Test Suite
  * 
  * Comprehensive automated verification for:
  * 1. URL syntax, scheme, port, and credential validation
@@ -9,6 +9,11 @@
  * 5. Sliding-window rate limiter (window bounds, remaining tokens, blocking)
  * 6. Provider architecture & extractor orchestration
  * 7. Error taxonomy and HTTP status code mappings
+ * 8. Reusable oEmbed client (trusted whitelist, response schema validation, untrusted HTML isolation)
+ * 9. YouTube provider (video ID extraction, canonical URL, thumbnail resolution, fallback)
+ * 10. GitHub provider (segment validation, sub-resources, REST API mapping, rate limit handling)
+ * 11. Instagram provider (shortcode extraction, login-wall handling, compliant fallback)
+ * 12. Extractor pipeline priority & field-level metadata merging
  */
 
 const {
@@ -32,6 +37,20 @@ const {
   SizeLimitError,
   RedirectLimitError,
   RateLimitError,
+  ProviderError,
+  oEmbedClient,
+  OEmbedClient,
+  sanitizeMediaUrl,
+  YouTubeProvider,
+  youtubeProvider,
+  extractYouTubeVideoId,
+  GitHubProvider,
+  githubProvider,
+  parseGitHubUrl,
+  InstagramProvider,
+  instagramProvider,
+  parseInstagramUrl,
+  mergeMetadata,
 } = require('../dist-test/index.js');
 
 let passCount = 0;
@@ -65,7 +84,7 @@ function expectThrow(fn, expectedErrorClass, testName) {
 
 async function runTests() {
   console.log('\n======================================================');
-  console.log('   DevVault Phase 02.3.1: Metadata Engine Verification');
+  console.log('   DevVault Phase 02.3: Metadata Engine Verification');
   console.log('======================================================\n');
 
   // =========================================================================
@@ -351,6 +370,179 @@ async function runTests() {
   assert(new SizeLimitError().statusCode === 422, 'SizeLimitError maps to HTTP 422');
   assert(new RedirectLimitError().statusCode === 400, 'RedirectLimitError maps to HTTP 400');
   assert(new RateLimitError().statusCode === 429, 'RateLimitError maps to HTTP 429');
+
+  // =========================================================================
+  // 8. REUSABLE OEMBED CLIENT & SECURITY CONTROLS
+  // =========================================================================
+  console.log('\n8. Reusable oEmbed Client & Security Controls:');
+
+  assert(oEmbedClient instanceof OEmbedClient, 'oEmbedClient singleton instance is available');
+
+  // Untrusted endpoint rejection
+  try {
+    await oEmbedClient.fetchOEmbed('https://malicious-domain.com/oembed', 'https://example.com');
+    assert(false, 'oEmbed client rejected untrusted endpoint');
+  } catch (err) {
+    assert(err instanceof ProviderError, 'Rejects untrusted oEmbed endpoint with ProviderError');
+  }
+
+  // Media URL sanitization
+  assert(sanitizeMediaUrl('javascript:alert(1)') === null, 'Sanitizes and blocks javascript: media URLs');
+  assert(sanitizeMediaUrl('data:image/png;base64,...') === null, 'Sanitizes and blocks data: media URLs');
+  assert(sanitizeMediaUrl('https://i.ytimg.com/vi/abc/hqdefault.jpg') === 'https://i.ytimg.com/vi/abc/hqdefault.jpg', 'Accepts valid https media URLs');
+  assert(sanitizeMediaUrl('   https://example.com/img.jpg   ') === 'https://example.com/img.jpg', 'Trims whitespace on media URLs');
+  assert(sanitizeMediaUrl('') === null, 'Returns null on empty media URL');
+
+  // =========================================================================
+  // 9. YOUTUBE PROVIDER VALIDATION & EXTRACTION
+  // =========================================================================
+  console.log('\n9. YouTube Provider Validation & Extraction:');
+
+  assert(youtubeProvider instanceof YouTubeProvider, 'YouTubeProvider instance available');
+  assert(youtubeProvider.priority === 20, 'YouTubeProvider priority is 20');
+
+  // Video ID extraction across all supported URL forms
+  const ytWatch = extractYouTubeVideoId(new URL('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+  assert(ytWatch === 'dQw4w9WgXcQ', 'Extracts ID from youtube.com/watch?v=');
+
+  const ytShortUrl = extractYouTubeVideoId(new URL('https://youtu.be/dQw4w9WgXcQ?t=10'));
+  assert(ytShortUrl === 'dQw4w9WgXcQ', 'Extracts ID from youtu.be/ short URL with timestamp');
+
+  const ytShorts = extractYouTubeVideoId(new URL('https://youtube.com/shorts/dQw4w9WgXcQ'));
+  assert(ytShorts === 'dQw4w9WgXcQ', 'Extracts ID from youtube.com/shorts/');
+
+  const ytEmbed = extractYouTubeVideoId(new URL('https://www.youtube.com/embed/dQw4w9WgXcQ'));
+  assert(ytEmbed === 'dQw4w9WgXcQ', 'Extracts ID from youtube.com/embed/');
+
+  const ytLive = extractYouTubeVideoId(new URL('https://www.youtube.com/live/dQw4w9WgXcQ?feature=share'));
+  assert(ytLive === 'dQw4w9WgXcQ', 'Extracts ID from youtube.com/live/');
+
+  // Invalid IDs
+  assert(extractYouTubeVideoId(new URL('https://youtube.com/watch?v=invalidShort')) === null, 'Rejects video ID with invalid length');
+  assert(extractYouTubeVideoId(new URL('https://youtube.com/watch?v=invalid@char!')) === null, 'Rejects video ID with illegal characters');
+  assert(extractYouTubeVideoId(new URL('https://youtube.com/channel/UC123456789')) === null, 'Returns null for channel URL');
+
+  // Supports checks
+  assert(youtubeProvider.supports(new URL('https://www.youtube.com/watch?v=dQw4w9WgXcQ')), 'Supports standard watch URL');
+  assert(youtubeProvider.supports(new URL('https://youtu.be/dQw4w9WgXcQ')), 'Supports youtu.be URL');
+  assert(!youtubeProvider.supports(new URL('https://vimeo.com/123456789')), 'Rejects non-YouTube URL');
+
+  // =========================================================================
+  // 10. GITHUB PROVIDER VALIDATION & SUB-RESOURCE MAPPING
+  // =========================================================================
+  console.log('\n10. GitHub Provider Validation & Sub-Resource Mapping:');
+
+  assert(githubProvider instanceof GitHubProvider, 'GitHubProvider instance available');
+  assert(githubProvider.priority === 30, 'GitHubProvider priority is 30');
+
+  // Segment parsing
+  const ghRepo = parseGitHubUrl(new URL('https://github.com/facebook/react'));
+  assert(ghRepo !== null && ghRepo.owner === 'facebook' && ghRepo.repo === 'react' && ghRepo.isRoot, 'Parses standard repository root');
+
+  const ghDotGit = parseGitHubUrl(new URL('https://github.com/facebook/react.git'));
+  assert(ghDotGit !== null && ghDotGit.repo === 'react', 'Strips .git suffix from repository name');
+
+  // Sub-resource parsing
+  const ghIssue = parseGitHubUrl(new URL('https://github.com/facebook/react/issues/28000'));
+  assert(ghIssue !== null && ghIssue.subType === 'issues' && ghIssue.subIdentifier === '28000' && !ghIssue.isRoot, 'Identifies issue sub-resource');
+
+  const ghPR = parseGitHubUrl(new URL('https://github.com/facebook/react/pull/28001'));
+  assert(ghPR !== null && ghPR.subType === 'pull' && ghPR.subIdentifier === '28001' && !ghPR.isRoot, 'Identifies pull request sub-resource');
+
+  const ghTree = parseGitHubUrl(new URL('https://github.com/vercel/next.js/tree/canary'));
+  assert(ghTree !== null && ghTree.subType === 'tree' && !ghTree.isRoot, 'Identifies branch code tree sub-resource');
+
+  const ghRelease = parseGitHubUrl(new URL('https://github.com/vercel/next.js/releases/tag/v15.1.0'));
+  assert(ghRelease !== null && ghRelease.subType === 'releases' && !ghRelease.isRoot, 'Identifies release sub-resource');
+
+  // Rejection of invalid paths and reserved names
+  assert(parseGitHubUrl(new URL('https://github.com/marketplace')) === null, 'Rejects reserved GitHub path /marketplace');
+  assert(parseGitHubUrl(new URL('https://github.com/pricing')) === null, 'Rejects reserved GitHub path /pricing');
+  assert(parseGitHubUrl(new URL('https://github.com/explore')) === null, 'Rejects reserved GitHub path /explore');
+  assert(parseGitHubUrl(new URL('https://github.com/invalid@char/repo')) === null, 'Rejects owner with illegal characters');
+  assert(parseGitHubUrl(new URL('https://gitlab.com/facebook/react')) === null, 'Rejects non-GitHub hostname');
+
+  // =========================================================================
+  // 11. INSTAGRAM PROVIDER BEST-EFFORT & LOGIN-WALL HANDLING
+  // =========================================================================
+  console.log('\n11. Instagram Provider Best-Effort & Login-Wall Handling:');
+
+  assert(instagramProvider instanceof InstagramProvider, 'InstagramProvider instance available');
+  assert(instagramProvider.priority === 15, 'InstagramProvider priority is 15');
+
+  // URL parsing across posts, reels, tv
+  const igPost = parseInstagramUrl(new URL('https://www.instagram.com/p/C_abc123/'));
+  assert(igPost !== null && igPost.shortcode === 'C_abc123' && igPost.kind === 'post', 'Parses Instagram post shortcode');
+
+  const igReel = parseInstagramUrl(new URL('https://instagram.com/reel/D_xyz456?utm_source=ig_web'));
+  assert(igReel !== null && igReel.shortcode === 'D_xyz456' && igReel.kind === 'reel', 'Parses Instagram reel shortcode with query');
+
+  const igTv = parseInstagramUrl(new URL('https://instagram.com/tv/E_tv789/'));
+  assert(igTv !== null && igTv.shortcode === 'E_tv789' && igTv.kind === 'tv', 'Parses Instagram TV shortcode');
+
+  assert(parseInstagramUrl(new URL('https://instagram.com/explore/')) === null, 'Rejects unsupported /explore path');
+  assert(parseInstagramUrl(new URL('https://twitter.com/p/123456')) === null, 'Rejects non-Instagram host');
+
+  // =========================================================================
+  // 12. EXTRACTOR PIPELINE PRIORITY & FIELD-LEVEL MERGING
+  // =========================================================================
+  console.log('\n12. Extractor Priority Ordering & Field-Level Merging:');
+
+  const globalExtractor = new MetadataExtractor();
+  const providerNames = globalExtractor.getRegisteredProviders();
+
+  // Verify priority ordering: GitHub (30) > YouTube (20) > Instagram (15) > Website (0)
+  assert(providerNames[0] === 'github', 'First priority is github (30)');
+  assert(providerNames[1] === 'youtube', 'Second priority is youtube (20)');
+  assert(providerNames[2] === 'instagram', 'Third priority is instagram (15)');
+  assert(providerNames[3] === 'website', 'Fallback priority is website (0)');
+
+  // Verify field-level merging logic
+  const primaryMeta = {
+    title: 'Primary Title',
+    description: null, // missing description
+    image: 'https://example.com/primary.jpg',
+    siteName: 'Primary Site',
+    sourceUrl: 'https://example.com/page',
+    canonicalUrl: 'https://example.com/canonical',
+    platform: 'YOUTUBE',
+    contentType: 'video',
+    author: null, // missing author
+    publishedAt: null,
+    extractionStatus: 'partial',
+    confidence: 0.7,
+    extractedAt: '2026-11-19T10:00:00.000Z',
+    warnings: ['Primary warning'],
+  };
+
+  const fallbackMeta = {
+    title: 'Fallback Title (should NOT overwrite primary)',
+    description: 'Enriched description from HTML fallback.',
+    image: 'https://example.com/fallback.jpg (should NOT overwrite)',
+    siteName: 'Fallback Site',
+    sourceUrl: 'https://example.com/page',
+    canonicalUrl: 'https://example.com/fallback-canonical',
+    platform: 'WEBSITE',
+    contentType: 'website',
+    author: 'Enriched Author',
+    publishedAt: '2026-11-19T08:00:00.000Z',
+    extractionStatus: 'success',
+    confidence: 0.85,
+    extractedAt: '2026-11-19T10:00:01.000Z',
+    warnings: ['Fallback warning'],
+  };
+
+  const merged = mergeMetadata(primaryMeta, fallbackMeta);
+
+  assert(merged.title === 'Primary Title', 'Preserves primary title; does not overwrite with fallback');
+  assert(merged.description === 'Enriched description from HTML fallback.', 'Fills missing description from fallback');
+  assert(merged.image === 'https://example.com/primary.jpg', 'Preserves primary image; does not overwrite with fallback');
+  assert(merged.author === 'Enriched Author', 'Fills missing author from fallback');
+  assert(merged.publishedAt === '2026-11-19T08:00:00.000Z', 'Fills missing publishedAt from fallback');
+  assert(merged.platform === 'YOUTUBE', 'Preserves specialized platform (YOUTUBE)');
+  assert(merged.contentType === 'video', 'Preserves specialized contentType (video)');
+  assert(merged.warnings?.length === 2, 'Combines unique warnings from primary and fallback');
+  assert(merged.confidence === 0.85, 'Takes highest confidence score');
 
   console.log('\n======================================================');
   console.log(`Verification Complete: ${passCount} PASSED, ${failCount} FAILED`);

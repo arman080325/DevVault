@@ -857,6 +857,8 @@ function DashboardContent() {
           onClose={() => setIsCaptureOpen(false)}
           onSaveResource={handleSaveResource}
           existingResources={resources}
+          collections={collections}
+          session={authSession}
         />
       )}
 

@@ -360,3 +360,251 @@ export async function safeFetch(
     }
   }
 }
+
+export interface SafeFetchJsonOptions {
+  /** Maximum time allowed in ms (default: 6000) */
+  timeoutMs?: number;
+  /** Maximum number of redirects allowed (default: 5) */
+  maxRedirects?: number;
+  /** Maximum body size allowed in bytes (default: 524,288 = 512KB) */
+  maxBodySizeBytes?: number;
+  /** User-Agent header */
+  userAgent?: string;
+  /** Custom request headers */
+  headers?: Record<string, string>;
+}
+
+export interface SafeFetchJsonResult<T> {
+  data: T;
+  statusCode: number;
+  headers: Record<string, string>;
+  finalUrl: string;
+}
+
+const DEFAULT_JSON_MAX_BODY_SIZE_BYTES = 512 * 1024; // 512KB
+
+/**
+ * Validates whether the content-type is an acceptable JSON format.
+ */
+function isValidJsonContentType(contentTypeHeader: string | null): boolean {
+  if (!contentTypeHeader) {
+    return true;
+  }
+  const lower = contentTypeHeader.toLowerCase();
+  return (
+    lower.includes('application/json') ||
+    lower.includes('application/problem+json') ||
+    lower.includes('text/javascript') ||
+    lower.includes('application/javascript') ||
+    lower.includes('+json') ||
+    lower.includes('text/plain')
+  );
+}
+
+/**
+ * Safely fetches a JSON API or oEmbed endpoint with connection-level IP pinning,
+ * Content-Type verification, streaming body size cap, and strict timeouts.
+ */
+export async function safeFetchJson<T>(
+  targetUrl: string,
+  options: SafeFetchJsonOptions = {}
+): Promise<SafeFetchJsonResult<T>> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+  const maxBodySizeBytes =
+    options.maxBodySizeBytes ?? DEFAULT_JSON_MAX_BODY_SIZE_BYTES;
+  const userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
+
+  let currentUrl = targetUrl;
+  let redirectCount = 0;
+  const startTime = Date.now();
+
+  while (true) {
+    // 1. Validate URL structure on every hop
+    const validatedUrl = validateUrlStructure(currentUrl);
+    const resolvedUrlString = validatedUrl.href;
+
+    // 2. Compute remaining time budget
+    const elapsed = Date.now() - startTime;
+    const remainingTimeout = timeoutMs - elapsed;
+    if (remainingTimeout <= 0) {
+      throw new TimeoutError(`Request exceeded total timeout threshold of ${timeoutMs}ms.`);
+    }
+
+    const abortController = new AbortController();
+    const timer = setTimeout(() => {
+      abortController.abort();
+    }, remainingTimeout);
+
+    try {
+      // 3. Connect via safeAgent (with connection-level IP pinning and DNS SSRF defense)
+      const requestHeaders: Record<string, string> = {
+        'User-Agent': userAgent,
+        Accept: 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        ...(options.headers || {}),
+      };
+
+      let response: Response;
+      try {
+        response = (await undiciFetch(resolvedUrlString, {
+          method: 'GET',
+          headers: requestHeaders,
+          redirect: 'manual',
+          signal: abortController.signal,
+          dispatcher: safeAgent,
+        })) as unknown as Response;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw new TimeoutError(`Fetching "${resolvedUrlString}" timed out after ${timeoutMs}ms.`);
+        }
+
+        const cause = (err as { cause?: Error })?.cause;
+        if (cause instanceof MetadataError) {
+          throw cause;
+        }
+        if (cause instanceof Error && cause.name === 'AbortError') {
+          throw new TimeoutError(`Fetching "${resolvedUrlString}" timed out after ${timeoutMs}ms.`);
+        }
+        if ((cause as NodeJS.ErrnoException)?.code === 'ENOTFOUND') {
+          throw new InvalidURLError(`Hostname "${validatedUrl.hostname}" could not be resolved.`);
+        }
+
+        throw err;
+      }
+
+      // 4. Handle Redirects (301, 302, 303, 307, 308)
+      const isRedirect =
+        response.status === 301 ||
+        response.status === 302 ||
+        response.status === 303 ||
+        response.status === 307 ||
+        response.status === 308;
+
+      if (isRedirect) {
+        redirectCount++;
+        if (redirectCount > maxRedirects) {
+          throw new RedirectLimitError(
+            `Exceeded maximum redirect limit of ${maxRedirects} hops.`
+          );
+        }
+
+        const location = response.headers.get('location');
+        if (!location) {
+          throw new HTTPError(
+            `Redirect status ${response.status} returned without Location header.`,
+            response.status
+          );
+        }
+
+        try {
+          const nextUrl = new URL(location, resolvedUrlString).href;
+          currentUrl = nextUrl;
+          continue;
+        } catch {
+          throw new HTTPError(
+            `Invalid redirect location header received: "${location}"`,
+            response.status
+          );
+        }
+      }
+
+      // 5. Validate HTTP Status
+      if (!response.ok) {
+        throw new HTTPError(
+          `Remote API responded with HTTP status ${response.status} (${response.statusText}).`,
+          response.status
+        );
+      }
+
+      // 6. Enforce Content-Type
+      const contentType = response.headers.get('content-type');
+      if (!isValidJsonContentType(contentType)) {
+        throw new ContentTypeError(
+          `API returned unsupported Content-Type "${contentType || 'unknown'}". Only JSON responses are supported.`
+        );
+      }
+
+      // 7. Check Content-Length header
+      const contentLength = response.headers.get('content-length');
+      if (contentLength) {
+        const parsedLength = parseInt(contentLength, 10);
+        if (!isNaN(parsedLength) && parsedLength > maxBodySizeBytes) {
+          throw new SizeLimitError(
+            `API response Content-Length (${parsedLength} bytes) exceeds maximum limit of ${maxBodySizeBytes} bytes.`
+          );
+        }
+      }
+
+      // 8. Stream Body with byte counter
+      const body = response.body;
+      if (!body) {
+        throw new MetadataError('API returned empty response body', 'PARSING_ERROR', 422);
+      }
+
+      const reader = body.getReader();
+      const chunks: Uint8Array[] = [];
+      let receivedBytes = 0;
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          if (value) {
+            receivedBytes += value.length;
+            if (receivedBytes > maxBodySizeBytes) {
+              await reader.cancel('Size limit exceeded');
+              throw new SizeLimitError(
+                `API response payload exceeded maximum allowed limit of ${maxBodySizeBytes} bytes.`
+              );
+            }
+            chunks.push(value);
+          }
+        }
+      } catch (streamErr) {
+        if (streamErr instanceof SizeLimitError) {
+          throw streamErr;
+        }
+        if (
+          (streamErr instanceof Error && streamErr.name === 'AbortError') ||
+          (streamErr as { name?: string })?.name === 'AbortError'
+        ) {
+          throw new TimeoutError(`Streaming API response body timed out.`);
+        }
+        throw streamErr;
+      }
+
+      const totalBuffer = new Uint8Array(receivedBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        totalBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const decoder = new TextDecoder('utf-8', { fatal: false });
+      const rawText = decoder.decode(totalBuffer);
+
+      let parsedJson: T;
+      try {
+        parsedJson = JSON.parse(rawText) as T;
+      } catch (parseErr) {
+        throw new MetadataError(
+          `Failed to parse response as JSON: ${(parseErr as Error).message}`,
+          'PARSING_ERROR',
+          422
+        );
+      }
+
+      return {
+        data: parsedJson,
+        statusCode: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        finalUrl: resolvedUrlString,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
