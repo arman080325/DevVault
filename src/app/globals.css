@@ -1113,6 +1113,21 @@ html.dark .sidebar-capture {
   border: 1px solid var(--rule);
   background: var(--raised);
   border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.library-search-shimmer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: search-shimmer 1.2s infinite;
+}
+@keyframes search-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 .library-search > svg {
   color: var(--accent);
@@ -2767,6 +2782,34 @@ html.dark .sidebar-capture {
   color: var(--accent);
 }
 
+.capture-warning {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.4;
+}
+.capture-warning.auth-warning {
+  background: #b6503a18;
+  border: 1px solid #b6503a44;
+  color: var(--ink);
+}
+.capture-warning.auth-warning svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.capture-warning.extraction-warning {
+  background: #c8963e18;
+  border: 1px solid #c8963e44;
+  color: var(--ink);
+}
+.capture-warning.extraction-warning svg {
+  color: #c8963e;
+  flex-shrink: 0;
+}
+
 @keyframes modalIn {
   from {
     opacity: 0;
@@ -2864,6 +2907,14 @@ html.dark .sidebar-capture {
   color: var(--faint);
   font-size: 12px;
 }
+.metadata-label .pulse-dot {
+  background: var(--accent);
+  animation: capturePulse 1.2s infinite ease-in-out;
+}
+@keyframes capturePulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
 .capture-preview {
   min-height: 135px;
   padding: 10px;
@@ -2889,6 +2940,50 @@ html.dark .sidebar-capture {
 .capture-preview > div {
   padding: 8px 10px 8px 0;
 }
+.capture-preview-content {
+  padding: 4px 8px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.capture-title-input {
+  width: 100%;
+  font: 500 17px/1.25 "Newsreader", serif;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: 0;
+  outline: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.capture-title-input:hover,
+.capture-title-input:focus {
+  border-color: var(--rule);
+  background: var(--raised);
+}
+.capture-desc-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 4px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.capture-desc-input:hover,
+.capture-desc-input:focus {
+  border-color: var(--rule);
+  background: var(--raised);
+  color: var(--ink);
+}
 .capture-preview-domain {
   color: var(--faint);
   font: 600 12px "IBM Plex Mono";
@@ -2910,6 +3005,56 @@ html.dark .sidebar-capture {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+}
+.capture-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.capture-tags-container:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.capture-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--hover);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  font: 500 11px/1.4 "IBM Plex Mono", monospace;
+  color: var(--ink);
+}
+.capture-tag-chip button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  transition: color 0.15s;
+}
+.capture-tag-chip button:hover {
+  color: var(--accent);
+}
+.capture-tag-input {
+  flex: 1;
+  min-width: 75px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 12px "IBM Plex Mono", monospace;
+  outline: none;
+  padding: 2px 0;
 }
 .capture-field-group {
   display: flex;
@@ -3895,6 +4040,302 @@ html.dark .sidebar-capture {
   .capture-fields {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+}
+
+/* ==========================================================================
+   Vault Migration & Cloud Sync Styles (Phase 02)
+   ========================================================================== */
+.vault-migration-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.vault-migration-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: rgba(184, 93, 57, 0.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.vault-migration-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.vault-migration-body b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 2px;
+}
+
+.vault-migration-body p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.vault-migration-bar {
+  margin-top: 8px;
+  height: 4px;
+  width: 100%;
+  max-width: 240px;
+  background-color: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.vault-migration-bar div {
+  height: 100%;
+  background-color: var(--accent);
+  transition: width 0.25s ease-out;
+}
+
+.vault-migration-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.profile-cloud-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  margin-top: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.profile-cloud-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background-color: rgba(184, 93, 57, 0.1);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.profile-cloud-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-cloud-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 2px;
+}
+
+.profile-cloud-info p {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.cloud-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cloud-status-badge.synced {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.cloud-status-badge.local {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+/* Authentication Entry Points & Discoverability (Phase 02.1) */
+.top-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.top-signin-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(184, 93, 57, 0.12);
+}
+
+.top-synced-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.sidebar-auth-prompt {
+  width: 100%;
+}
+
+.sidebar-signin-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+}
+
+.sidebar-signin-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(184, 93, 57, 0.12);
+  transform: translateY(-1px);
+}
+
+.sidebar-signin-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: rgba(184, 93, 57, 0.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.sidebar-signin-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-signin-text b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.sidebar-signin-text small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.sidebar-signin-pill {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: var(--accent);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.sidebar-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.sidebar-profile-card .profile {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-signout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-signout-btn:hover {
+  color: var(--foreground);
+  background-color: rgba(0, 0, 0, 0.05);
+  border-color: var(--border);
+}
+
+@media (max-width: 640px) {
+  .vault-migration-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .vault-migration-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .profile-cloud-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .profile-cloud-card button {
+    width: 100%;
   }
 }
 

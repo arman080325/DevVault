@@ -18,15 +18,21 @@ export type IconName =
   | "docs"
   | "download"
   | "explore"
+  | "eye"
+  | "eye-off"
   | "filter"
   | "github"
   | "globe"
   | "grid"
   | "home"
+  | "info"
   | "instagram"
   | "library"
   | "link"
   | "list"
+  | "lock"
+  | "log-in"
+  | "log-out"
   | "moon"
   | "more"
   | "plus"
@@ -116,6 +122,20 @@ export function Icon({ name, size = 18, className }: IconProps) {
         <path d="m15.5 8.5-2 5-5 2 2-5z" />
       </>
     ),
+    eye: (
+      <>
+        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+    "eye-off": (
+      <>
+        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+        <line x1="2" y1="2" x2="22" y2="22" />
+      </>
+    ),
     filter: <path d="M4 7h16M7 12h10M10 17h4" />,
     github: (
       <path
@@ -147,6 +167,13 @@ export function Icon({ name, size = 18, className }: IconProps) {
         <path d="M5.5 9.5V20h13V9.5" />
       </>
     ),
+    info: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" strokeWidth="2.5" />
+      </>
+    ),
     instagram: (
       <>
         <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
@@ -165,6 +192,26 @@ export function Icon({ name, size = 18, className }: IconProps) {
       <>
         <path d="M9 6h11M9 12h11M9 18h11" />
         <path d="M4 6h.01M4 12h.01M4 18h.01" />
+      </>
+    ),
+    lock: (
+      <>
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </>
+    ),
+    "log-in": (
+      <>
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <polyline points="10 17 15 12 10 7" />
+        <line x1="15" y1="12" x2="3" y2="12" />
+      </>
+    ),
+    "log-out": (
+      <>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
       </>
     ),
     moon: <path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5z" />,

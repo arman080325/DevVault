@@ -19,6 +19,9 @@ interface SidebarProps {
   exploreCount?: number;
   onSelectCollection?: (name: string) => void;
   userProfile?: UserProfile;
+  isAuthenticated?: boolean;
+  onOpenAuth?: (mode?: "sign-in" | "sign-up") => void;
+  onSignOut?: () => void;
 }
 
 export function Sidebar({
@@ -28,6 +31,9 @@ export function Sidebar({
   exploreCount = 7,
   onSelectCollection,
   userProfile,
+  isAuthenticated = false,
+  onOpenAuth,
+  onSignOut,
 }: SidebarProps) {
   const displayName = userProfile?.name || "Alex Lin";
   const displayRole = userProfile?.role || "Personal vault";
@@ -124,14 +130,48 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-bottom">
-        <button className="profile" onClick={() => onPage("settings")}>
-          <span>{initials}</span>
-          <div>
-            <b>{displayName}</b>
-            <small>{displayRole}</small>
+        {isAuthenticated ? (
+          <div className="sidebar-profile-card">
+            <button className="profile" onClick={() => onPage("settings")}>
+              <span>{initials}</span>
+              <div>
+                <b>{displayName}</b>
+                <small className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                  Synced Vault
+                </small>
+              </div>
+              <Icon name="chevron" size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="sidebar-signout-btn"
+              title="Sign out of vault"
+              aria-label="Sign out"
+            >
+              <Icon name="log-out" size={15} />
+            </button>
           </div>
-          <Icon name="chevron" size={14} />
-        </button>
+        ) : (
+          <div className="sidebar-auth-prompt">
+            <button
+              type="button"
+              className="sidebar-signin-btn"
+              onClick={() => onOpenAuth?.("sign-in")}
+              aria-label="Sign in to sync your vault"
+            >
+              <span className="sidebar-signin-icon">
+                <Icon name="log-in" size={16} />
+              </span>
+              <div className="sidebar-signin-text">
+                <b>Sign In</b>
+                <small>Sync to cloud vault</small>
+              </div>
+              <span className="sidebar-signin-pill">Login</span>
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

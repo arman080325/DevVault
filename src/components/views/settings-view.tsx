@@ -25,6 +25,14 @@ interface SettingsViewProps {
   collectionsCount?: number;
   exploredCount?: number;
   vaultSizeKb?: number;
+  isAuthenticated?: boolean;
+  authEmail?: string | null;
+  onOpenAuth?: (mode?: "sign-in" | "sign-up") => void;
+  onSignOut?: () => void;
+  onMigrateLocal?: () => void;
+  migrationAvailable?: boolean;
+  isMigrating?: boolean;
+  migrationProgress?: { current: number; total: number };
 }
 
 const CANONICAL_STATUSES = ["To explore", "Exploring", "Completed"] as const;
@@ -53,6 +61,14 @@ export function SettingsView({
   collectionsCount = 4,
   exploredCount = 3,
   vaultSizeKb = 24,
+  isAuthenticated = false,
+  authEmail,
+  onOpenAuth,
+  onSignOut,
+  onMigrateLocal,
+  migrationAvailable = false,
+  isMigrating = false,
+  migrationProgress = { current: 0, total: 0 },
 }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
 
@@ -366,6 +382,90 @@ export function SettingsView({
                     </button>
                   </div>
                 </form>
+              )}
+
+              {/* Cloud Synchronization & Storage Status (Phase 02) */}
+              <div className="profile-cloud-card">
+                <div className="profile-cloud-icon">
+                  <Icon name="database" size={20} />
+                </div>
+                <div className="profile-cloud-info">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4>{isAuthenticated ? "Supabase Cloud Vault Active" : "Local Browser Storage Active"}</h4>
+                    <span className={`cloud-status-badge ${isAuthenticated ? "synced" : "local"}`}>
+                      {isAuthenticated ? "Cloud Sync" : "Local Vault"}
+                    </span>
+                  </div>
+                  <p>
+                    {isAuthenticated
+                      ? `Connected as ${authEmail || email}. Your resources, collections, and progress are securely isolated by Row Level Security in PostgreSQL.`
+                      : "Operating in local storage mode. Sign in to connect your Supabase backend, enable multi-device sync, and safely back up your knowledge vault."}
+                  </p>
+                </div>
+                <div>
+                  {isAuthenticated ? (
+                    <button
+                      type="button"
+                      className="outline-button"
+                      onClick={onSignOut}
+                    >
+                      <Icon name="log-out" size={14} />
+                      Sign out
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="settings-primary-btn"
+                        onClick={() => onOpenAuth?.("sign-in")}
+                      >
+                        <Icon name="log-in" size={15} />
+                        Sign In
+                      </button>
+                      <button
+                        type="button"
+                        className="outline-button"
+                        onClick={() => onOpenAuth?.("sign-up")}
+                      >
+                        Create Account
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Local Vault Migration Option if available */}
+              {migrationAvailable && (
+                <div className="vault-migration-banner mt-4">
+                  <div className="vault-migration-icon">
+                    <Icon name="upload" size={18} />
+                  </div>
+                  <div className="vault-migration-body">
+                    <b>Unsynced local resources detected</b>
+                    <p>You have items in your browser cache. Sync them into your PostgreSQL database.</p>
+                    {isMigrating && (
+                      <div className="vault-migration-bar">
+                        <div
+                          style={{
+                            width: `${(migrationProgress.current / Math.max(migrationProgress.total, 1)) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="vault-migration-actions">
+                    <button
+                      type="button"
+                      className="settings-primary-btn"
+                      disabled={isMigrating}
+                      onClick={onMigrateLocal}
+                    >
+                      {isMigrating
+                        ? `Syncing (${migrationProgress.current}/${migrationProgress.total})...`
+                        : "Sync to Cloud"}
+                    </button>
+                  </div>
+                </div>
               )}
             </section>
           )}

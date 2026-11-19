@@ -2,6 +2,7 @@ import { ResourceKind } from "@/components/resources/resource-art";
 
 export interface FigmaResource {
   id: number;
+  remoteId?: string;
   kind: ResourceKind;
   source: string;
   domain: string;
@@ -126,6 +127,7 @@ export const INITIAL_FIGMA_RESOURCES: FigmaResource[] = [
 ];
 
 export interface CollectionItem {
+  id?: string;
   name: string;
   count: number;
   note: string;

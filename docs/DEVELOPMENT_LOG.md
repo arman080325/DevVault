@@ -339,8 +339,279 @@ Phase 01.8 was commissioned to fix undersized typography, repair interactive dro
 3. `8b413f0 fix: restore category and status dropdowns`
 4. `e6f4762 fix: improve typography scale and mobile responsive layout`
 5. `7e1a247 test: expand responsive regression coverage and audit suite`
-6. `docs: document Phase 01.8 precision refinements and acceptance report`
+6. `b35d0bc docs: document Phase 01.8 precision refinements and acceptance report`
+7. `881e762 ui: elevate save a link button with luminous tactile craftsmanship`
+8. `d576986 feat: rebuild settings layout with functional tabs and profile editing`
+9. `e8da571 test: verify settings options and capture button interactions`
 
-### 4. Next Steps (Awaiting User Direction for Phase 02)
-- Frontend is complete, polished, and fully responsive across all viewports.
-- Await user approval before starting Phase 02 (Supabase / Database Backend & Authentication).
+### 4. Git Handoff to Phase 02
+- **Completed Frontend Baseline**: All Phase 01.8 precision refinements, settings overhaul, and luminous tactile capture button committed and verified.
+- **Pushed Remote Branch**: `origin/fix/ui-refinement-and-mobile-polish` pushed cleanly to `https://github.com/arman080325/DevVault.git`.
+- **Created Phase 02 Working Branch**: Checked out dedicated branch `feat/phase-02-database-backend` at HEAD `e8da571`.
+- **Status**: Ready for STAGE 1 (Complete Codebase & Architecture Audit) and STAGE 2 (Supabase Project Foundation).
+
+---
+
+## [Phase 02] — Database & Backend Foundation
+**Date:** November 18, 2026  
+**Status:** Completed  
+**Working Branch:** `feat/phase-02-database-backend`  
+**Reference Specification:** `docs/PHASE_02_ARCHITECTURE.md`  
+**Acceptance Report:** `docs/PHASE_02_REPORT.md`  
+
+### 1. Stage 0 — Git Handoff Completed
+- [x] Verified working tree clean on `fix/ui-refinement-and-mobile-polish`.
+- [x] Pushed `fix/ui-refinement-and-mobile-polish` to `origin` remote.
+- [x] Created and switched to `feat/phase-02-database-backend`.
+- [x] Verified complete commit history preserved from frontend HEAD.
+
+### 2. Implementation Milestones Completed
+- [x] **Stage 1 — Complete Codebase & Architecture Audit**:
+  - Audited Next.js 15.1.0, React 19, App Router, state model, and mock fixtures.
+  - Authored comprehensive architecture document `docs/PHASE_02_ARCHITECTURE.md`.
+- [x] **Stage 2 — Supabase Project Foundation**:
+  - Installed `@supabase/supabase-js` and `@supabase/ssr`.
+  - Authored typed database interfaces `src/lib/supabase/types.ts`.
+  - Created browser client `src/lib/supabase/client.ts` and server client `src/lib/supabase/server.ts`.
+  - Created `.env.example` with strict exclusion of service-role keys.
+- [x] **Stage 3 & 4 — Database Schema & Row Level Security**:
+  - Authored 7 normalized PostgreSQL migrations in `supabase/migrations/`:
+    - `001_create_profiles.sql` (profiles with trigger on `auth.users`)
+    - `002_create_resources.sql` (resources table, indexes, duplicate URL constraints)
+    - `003_create_collections.sql` (collections and `collection_resources` junction)
+    - `004_create_tags.sql` (tags and `resource_tags` junction)
+    - `005_create_activity.sql` (activity events table)
+    - `006_row_level_security.sql` (RLS enabled on 100% of user tables)
+    - `20261118000000_devvault_schema_and_rls.sql` (consolidated execution script)
+- [x] **Stage 5 — Authentication Foundation**:
+  - Implemented `src/services/auth-service.ts` for sign up, sign in, sign out, password reset, and session listeners.
+  - Built editorial `src/components/auth/auth-modal.tsx` adhering to DevVault's warm parchment/espresso palette and *Newsreader* typography.
+- [x] **Stage 6 & 7 — Persistent Resource & Collection Management**:
+  - Created `src/services/resource-service.ts` with URL normalization, duplicate detection, and async CRUD.
+  - Created `src/services/collection-service.ts` for shelf management and automatic resource counts.
+  - Connected state hooks in `src/app/page.tsx` and `settings-view.tsx`.
+- [x] **Stage 8 — Safe Local Vault Migration Pipeline**:
+  - Created `src/services/migration-service.ts`: scans browser cache, creates immutable backup, deduplicates URLs, verifies round-trip insertion, and displays live progress.
+- [x] **Stage 9 & 10 — Verification & Quality Assurance**:
+  - Authored automated test suite `scripts/verify-phase-02.js` (**47/47 tests passed, 100%**).
+  - TypeScript strict compile: 0 errors (`npx tsc --noEmit`).
+  - ESLint: 0 warnings, 0 errors (`npm run lint`).
+  - Next.js production build: 100% static routes compiled (`npm run build`).
+  - Next.js live dev server running on `http://localhost:3000`.
+
+### 3. Git Commits in Phase 02
+1. `e54cf94 chore: initialize supabase backend integration`
+2. `a3965f6 feat(db): add initial postgres schema and migrations`
+3. `e2e240c feat(security): configure row level security policies`
+4. `d67b986 feat(auth): implement supabase authentication`
+5. `27267b2 feat(resources): implement persistent resource management`
+6. `845d842 feat(collections): integrate persistent collections and tags`
+7. `2a78af6 feat(data): implement safe local vault migration`
+8. `0b92924 test: add backend integration and security coverage`
+9. `1cff196 docs: document phase 02 backend architecture`
+
+---
+
+## [Phase 02.1] — Authentication UI Integration & Supabase Session Activation
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-database-backend`  
+
+### Key Implementations:
+1. **Discoverable Entry Points:**
+   - Top navigation: Added editorial "Sign In" button on desktop; mobile profile avatar opens authentication dialog directly when unauthenticated.
+   - Desktop sidebar: Added a tactile, dedicated Sign In trigger card at the base of navigation with a rust "Login" pill.
+   - Settings page: Dedicated Cloud Sync card with "Sign In" and "Create Account" triggers.
+   - Home view: Added Local Vault Active welcome notice distinguishing local demo storage from synchronized cloud storage.
+2. **AuthModal Upgrade:**
+   - Sign In, Create Account, and Password Reset modes.
+   - Confirm password verification input.
+   - Show / hide password visibility toggle.
+   - Remember me checkbox for session retention.
+   - Inline field-level validation and Supabase email verification messaging.
+3. **Automated Verification:**
+   - Ran 27 automated end-to-end assertions via Chrome DevTools Protocol across desktop (1440px) and mobile viewports (360px, 375px, 390px, 430px).
+   - Generated visual acceptance screenshot artifacts in `docs/screenshots/`.
+   - 100% TypeScript type check and Next.js static production build passed.
+
+---
+
+## [Phase 02.2] — Complete Supabase Data Persistence & Synchronization
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-2-data-persistence`  
+
+### Key Implementations:
+1. **Full Resource Persistence & Data Normalization:**
+   - Preserved PostgreSQL UUIDs in `remoteId?: string` on `FigmaResource` for primary-key indexed mutations.
+   - Normalized URL matching (`lowercase`, stripped trailing slashes, protocol, query parameters).
+   - Upgraded `resourceService` with full CRUD: `createResource`, `fetchResources`, `updateResource`, `deleteResource`, and `checkDuplicateUrl`.
+   - Wired optimistic UI updates with automatic rollback on network error.
+2. **Collections & Shelves Lifecycle:**
+   - Upgraded `collectionService` with `fetchCollections`, `createCollection`, `renameCollection`, `updateCollection`, and `deleteCollection`.
+   - Joined `collection_resources(count)` for accurate, real-time resource counts per shelf.
+   - Added shelf editing and deletion modal to `CollectionsView`.
+3. **Tags Management:**
+   - Created `tagService` (`createTag`, `getTags`, `assignTagsToResource`, `removeTagFromResource`, `searchByTag`).
+   - Guarded against duplicate tag rows via `(user_id, name)` unique constraints and junction policies.
+4. **Dynamic Activity & Insights:**
+   - Created `activityService` logging audit trail entries (`CAPTURED`, `UPDATED`, `PINNED`, `COMPLETED`, `COLLECTION_CREATED`, `COLLECTION_ADDED`).
+   - Dynamic derivation of total saved, explored, monthly growth, top category, return rate, and 12-bar rhythm chart in `ActivityView`.
+5. **Multi-User Security & Verification:**
+   - Verified PostgreSQL Row Level Security (RLS) enforcement against unauthorized direct injection (blocked with code 42501).
+   - Ran 48 automated end-to-end assertions via `scripts/verify-phase-02-2.js` with 100% pass rate.
+   - Generated visual acceptance screenshots: `phase-02-2-collections.png`, `phase-02-2-activity.png`, `phase-02-2-library.png`.
+
+
+
+
+---
+
+## [Phase 02.3.1] — Secure Metadata Engine Foundation
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-3-smart-metadata`  
+
+### Key Implementations:
+1. **Server-Side Metadata Engine Architecture:**
+   - Created `src/lib/metadata/types.ts`: Provider-independent schema `NormalizedMetadata`, status flags (`success`, `partial`, `manual_required`), platform types, and options.
+   - Created `src/lib/metadata/errors.ts`: Complete error taxonomy (`SSRFError`, `InvalidURLError`, `TimeoutError`, `ContentTypeError`, `SizeLimitError`, `RedirectLimitError`, `HTTPError`, `RateLimitError`) with HTTP status mappings.
+2. **SSRF Defense & URL Validation:**
+   - Created `src/lib/metadata/url-validator.ts`: Comprehensive protocol checks (HTTP/HTTPS only), credential rejection, port restrictions (80, 443 only).
+   - Strict IP address evaluation blocking loopback (`127.0.0.0/8`, `::1`), private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local/cloud metadata (`169.254.169.254`, `100.100.100.200`, `fe80::/10`), carrier-grade NAT (`100.64.0.0/10`), multicast/reserved, and IPv4-mapped IPv6 addresses (`::ffff:x.x.x.x`).
+   - Hostname blacklist blocking `localhost`, `*.local`, `*.internal`, and cloud metadata hostnames (`metadata.google.internal`, `instance-data`).
+   - DNS pre-resolution via `dns.promises.lookup` verifying all resolved IP addresses.
+3. **Safe HTTP Fetcher:**
+   - Created `src/lib/metadata/safe-fetch.ts`: Manual redirect handling (`redirect: 'manual'`, max 5 hops) with recursive target URL and DNS revalidation.
+   - Enforced 6-second timeout via `AbortController`.
+   - Streaming response body reader capped at 1MB (1,048,576 bytes).
+   - Content-Type verification accepting only HTML markup.
+4. **HTML / Open Graph / JSON-LD Parser:**
+   - Created `src/lib/metadata/metadata-parser.ts` using Cheerio with cascading priority: Open Graph → Twitter Cards → Schema.org JSON-LD → HTML `<title>`/`<meta>`.
+   - Relative URL resolution for image and canonical tags.
+   - Platform detection (`GITHUB`, `YOUTUBE`, `INSTAGRAM`, `DOCS`, `DESIGN`, `WEBSITE`).
+   - Objective confidence scoring rewarding extracted metadata.
+5. **In-Memory Caching & Rate Limiting:**
+   - Created `src/lib/metadata/metadata-cache.ts`: Bounded LRU cache (1,000 items) with 1-hour TTL, query param sorting, and tracking parameter stripping (`utm_*`, `ref`, `fbclid`).
+   - Created `src/lib/metadata/rate-limiter.ts`: Sliding-window limiter (30 requests / 60 seconds per user) returning standard `X-RateLimit-*` and `Retry-After` headers.
+6. **Provider Registry & Extractor Pipeline:**
+   - Created `src/lib/metadata/providers/types.ts` & `website.provider.ts`: Extensible provider interface and universal fallback provider.
+   - Created `src/lib/metadata/extractor.ts`: `MetadataExtractor` singleton coordinating validation, cache, provider selection, and extraction.
+   - Created barrel export `src/lib/metadata/index.ts`.
+7. **Next.js API Route:**
+   - Created `src/app/api/metadata/extract/route.ts`: Authenticated POST route checking Supabase sessions/bearer tokens, enforcing rate limits, parsing input with Zod, and returning sanitized errors without stack traces.
+8. **Automated Verification & Quality Assurance:**
+   - Authored test suite `scripts/verify-phase-02-3-metadata.js` (**111/111 tests passed, 100%**).
+   - TypeScript strict compile: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: dynamic route `/api/metadata/extract` recognized and compiled (`npm run build`).
+   - Next.js live dev server running on `http://localhost:3000`.
+---
+
+## [Phase 02.3.2] — Specialized Platform Metadata Providers
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-3-smart-metadata`  
+**Checkpoint Base:** `dbf023f`  
+
+### Key Implementations:
+1. **Reusable Secure oEmbed Layer (`oembed.client.ts`):**
+   - Curated whitelist of trusted oEmbed endpoints (`www.youtube.com`, `graph.facebook.com`).
+   - Strict response schema validation (`title`, `author_name`, `thumbnail_url`, `provider_name`, `type`).
+   - Embedded HTML isolation: treated strictly as unexecuted string data.
+   - Media URL sanitization blocking `javascript:` and `data:` schemes.
+2. **Safe JSON HTTP Fetcher (`safe-fetch.ts`):**
+   - Implemented `safeFetchJson<T>` with connection-level IP pinning (`undici.buildConnector`).
+   - Enforced JSON Content-Type validation and 512KB response body size limit.
+3. **YouTube Metadata Provider (`youtube.provider.ts` — Priority: 20):**
+   - Supports `youtube.com/watch`, `youtu.be/`, `/shorts/`, `/embed/`, `/live/` with strict 11-char video ID validation.
+   - Primary extraction via official public YouTube oEmbed endpoint.
+   - Canonical URL normalization (`https://www.youtube.com/watch?v={id}`).
+   - Fallback to universal website HTML parsing and optional `YOUTUBE_API_KEY` enrichment.
+4. **GitHub Metadata Provider (`github.provider.ts` — Priority: 30):**
+   - Supports `github.com/{owner}/{repo}` with strict alphanumeric/hyphen/period segment validation.
+   - Primary extraction via public GitHub REST API (`api.github.com/repos/{owner}/{repo}`).
+   - Context-aware sub-resource protection: issues, pull requests, releases, and code trees are identified with distinct content types and explicit warnings rather than misrepresenting repository details.
+   - Rate limit handling (403/429) with seamless website HTML fallback. Optional `GITHUB_TOKEN` support.
+5. **Instagram Metadata Provider (`instagram.provider.ts` — Priority: 15):**
+   - Supports posts, reels, and TV links with alphanumeric shortcode extraction.
+   - Server-side optional Meta API token integration (`META_APP_TOKEN` / `INSTAGRAM_APP_TOKEN`).
+   - Compliant fallback: handles login walls by returning `manual_required` status with clear user guidance. Zero scraping or bot bypass.
+6. **Extractor Pipeline & Priority Merging (`extractor.ts`):**
+   - Registered providers in priority order: GitHub (30) > YouTube (20) > Instagram (15) > Website (0).
+   - Implemented `mergeMetadata` with strict precedence (never overwriting non-empty fields with null/empty).
+7. **Automated Verification & Quality Assurance:**
+   - Expanded test suite `scripts/verify-phase-02-3-metadata.js` (**164/164 tests passed, 100%**).
+   - TypeScript strict compile: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: dynamic route `/api/metadata/extract` recognized and compiled (`npm run build`).
+   - Next.js live dev server running on `http://localhost:3000`.
+
+---
+
+## [Phase 02.3.3] — Quick Capture UI Integration & Persistence
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-3-smart-metadata`  
+**Checkpoint Base:** `dbf023f`  
+
+### Key Implementations:
+1. **Live Debounced Extraction & Concurrency Protection:**
+   - Connected Quick Capture (`quick-capture-modal.tsx`) to `POST /api/metadata/extract` with a 500ms debounce.
+   - Guarded against race conditions and stale out-of-order responses using `requestIdRef` and `AbortController`.
+   - Clears stale metadata and preview images immediately when the URL changes.
+2. **Field-Level Mapping & Editorial Typography:**
+   - Mapped `NormalizedMetadata` fields cleanly into `FigmaResource` (`title`, `description`, `imageUrl`, `domain`, `source`, `category`, `status`, `collection`, `tags`, `notes`).
+   - Made preview title directly editable with `Newsreader` serif styling matching the approved Figma design (`.capture-title-input`).
+   - Made preview description directly editable with matching typography (`.capture-desc-input`).
+   - Connected `ResourceArt` to live image URLs for rich Open Graph, YouTube thumbnail, and GitHub preview rendering.
+3. **Shelf / Collection & Tag Management:**
+   - Integrated shelf/collection selection dropdown using user collections passed via the `collections` prop, with clean `"None (Unassigned)"` support.
+   - Built interactive tag chip editor supporting one-click removal, Enter/comma tag creation, automatic deduplication, and platform tag recommendations (`GitHub`, `Video`).
+4. **Authentication & Session Expiration Feedback:**
+   - Passed user session token (`Authorization: Bearer <token>`) when available.
+   - Handled 401 status gracefully: displayed clear session-expiration notice to authenticated users (*"Session expired. Please log in again to sync, or save locally."*) while allowing smooth local saving.
+   - Handled rate limit (429) and login-wall (`manual_required`) responses with clear user feedback.
+5. **Double-Submission Prevention & Persistence:**
+   - Enforced `isSubmittingRef` guard preventing concurrent duplicate submissions.
+   - Preserved Supabase PostgreSQL persistence (RLS enforcement, `activity_events` logging, tag junction tables, collection linking) with automatic local storage sync.
+6. **Automated Verification & Quality Assurance:**
+   - Authored test suite `scripts/verify-phase-02-3-capture.js` (**30/30 tests passed, 100%**).
+   - Full Phase 02.3 automated assertion count: **194/194 passed (100%)**.
+   - TypeScript strict check: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: 5/5 static pages generated + dynamic `/api/metadata/extract` endpoint (code 0).
+   - Next.js live dev server running on `http://localhost:3000`.
+
+---
+
+## [Phase 02.4.1] — Global Search Engine Architecture & Implementation
+**Date:** November 19, 2026
+**Branch:** `feat/phase-02-4-global-search`
+**Checkpoint Base:** `ae0ec11`
+
+### Key Implementations:
+1. **Search Matcher Engine (`src/lib/search/search-matcher.ts`):**
+   - Built a zero-dependency, normalized search tokenizer and scoring engine.
+   - Evaluates all 8 dimensions: Title, Description, Notes, URL & Path, Platform/Source, Category, Tags, and Collection names.
+   - Fixed critical bug where personal notes were omitted from search despite UI placeholder promises.
+   - Fixed critical bug where original URLs and repository paths were omitted from search.
+   - Added multi-term AND token matching, case-insensitivity, and technical punctuation preservation (`next.js`, `c++`, `ui/ux`).
+   - Weighted relevancy scoring: Title (100) > Tags (45) > Collection (40) > Category (35) > Source/URL (30) > Notes (20) > Description (15).
+2. **Search Service & Persistence Integration (`src/services/resource-service.ts`):**
+   - Implemented `searchResources(userId, criteria)` supporting user tenancy and PostgreSQL Row Level Security (RLS).
+   - Integrated `AbortSignal` cancellation for immediate in-flight request termination.
+   - Implemented dual-path execution: attempts PostgreSQL `search_user_resources` RPC, with seamless fallback to PostgREST `.or(...)` queries and in-memory multi-field matching.
+   - Implemented offline/demo cache fallback (`searchLocalCache`) guaranteeing 100% search parity when unauthenticated or disconnected.
+3. **Database Full-Text Search Schema (`supabase/migrations/007_search_indexes.sql`):**
+   - Added generated `search_vector tsvector` column combining Title (A), Category/Platform (B), Description/Notes (C), and Domain/URL (D).
+   - Added GIN index `idx_resources_search_vector` for sub-millisecond retrieval.
+   - Created `search_user_resources` RPC with `SECURITY INVOKER`, explicit `auth.uid() = user_id` boundary, and relational `EXISTS` queries for tags and collections.
+4. **Library View UI Polish & Loading Feedback (`src/components/views/library-view.tsx`):**
+   - Tiered search architecture: 0ms instant local match over loaded resources + 300ms debounced server search for deep vault retrieval.
+   - Added `searchSeqRef` guard preventing out-of-order responses from overwriting newer results.
+   - Added discreet 2px accent loading shimmer (`.library-search-shimmer`) during active searches.
+   - Added Escape key handler to clear active query or blur input.
+   - Enhanced empty state with clear offline/online guidance and one-click search clearing.
+5. **Automated Verification & Quality Assurance:**
+   - Authored comprehensive test suite `scripts/verify-phase-02-4-search.js` (**49/49 assertions passed, 100%**).
+   - Full regression across all phases: **291/291 assertions passed**.
+   - TypeScript strict check: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: 5/5 static pages + dynamic route compiled successfully (code 0).
+   - Chrome DevTools (CDP) headless browser validation for desktop (light/dark) and mobile viewports.
