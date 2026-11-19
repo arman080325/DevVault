@@ -463,3 +463,43 @@ Phase 01.8 was commissioned to fix undersized typography, repair interactive dro
 
 
 
+---
+
+## [Phase 02.3.1] — Secure Metadata Engine Foundation
+**Date:** November 19, 2026  
+**Branch:** `feat/phase-02-3-smart-metadata`  
+
+### Key Implementations:
+1. **Server-Side Metadata Engine Architecture:**
+   - Created `src/lib/metadata/types.ts`: Provider-independent schema `NormalizedMetadata`, status flags (`success`, `partial`, `manual_required`), platform types, and options.
+   - Created `src/lib/metadata/errors.ts`: Complete error taxonomy (`SSRFError`, `InvalidURLError`, `TimeoutError`, `ContentTypeError`, `SizeLimitError`, `RedirectLimitError`, `HTTPError`, `RateLimitError`) with HTTP status mappings.
+2. **SSRF Defense & URL Validation:**
+   - Created `src/lib/metadata/url-validator.ts`: Comprehensive protocol checks (HTTP/HTTPS only), credential rejection, port restrictions (80, 443 only).
+   - Strict IP address evaluation blocking loopback (`127.0.0.0/8`, `::1`), private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local/cloud metadata (`169.254.169.254`, `100.100.100.200`, `fe80::/10`), carrier-grade NAT (`100.64.0.0/10`), multicast/reserved, and IPv4-mapped IPv6 addresses (`::ffff:x.x.x.x`).
+   - Hostname blacklist blocking `localhost`, `*.local`, `*.internal`, and cloud metadata hostnames (`metadata.google.internal`, `instance-data`).
+   - DNS pre-resolution via `dns.promises.lookup` verifying all resolved IP addresses.
+3. **Safe HTTP Fetcher:**
+   - Created `src/lib/metadata/safe-fetch.ts`: Manual redirect handling (`redirect: 'manual'`, max 5 hops) with recursive target URL and DNS revalidation.
+   - Enforced 6-second timeout via `AbortController`.
+   - Streaming response body reader capped at 1MB (1,048,576 bytes).
+   - Content-Type verification accepting only HTML markup.
+4. **HTML / Open Graph / JSON-LD Parser:**
+   - Created `src/lib/metadata/metadata-parser.ts` using Cheerio with cascading priority: Open Graph → Twitter Cards → Schema.org JSON-LD → HTML `<title>`/`<meta>`.
+   - Relative URL resolution for image and canonical tags.
+   - Platform detection (`GITHUB`, `YOUTUBE`, `INSTAGRAM`, `DOCS`, `DESIGN`, `WEBSITE`).
+   - Objective confidence scoring rewarding extracted metadata.
+5. **In-Memory Caching & Rate Limiting:**
+   - Created `src/lib/metadata/metadata-cache.ts`: Bounded LRU cache (1,000 items) with 1-hour TTL, query param sorting, and tracking parameter stripping (`utm_*`, `ref`, `fbclid`).
+   - Created `src/lib/metadata/rate-limiter.ts`: Sliding-window limiter (30 requests / 60 seconds per user) returning standard `X-RateLimit-*` and `Retry-After` headers.
+6. **Provider Registry & Extractor Pipeline:**
+   - Created `src/lib/metadata/providers/types.ts` & `website.provider.ts`: Extensible provider interface and universal fallback provider.
+   - Created `src/lib/metadata/extractor.ts`: `MetadataExtractor` singleton coordinating validation, cache, provider selection, and extraction.
+   - Created barrel export `src/lib/metadata/index.ts`.
+7. **Next.js API Route:**
+   - Created `src/app/api/metadata/extract/route.ts`: Authenticated POST route checking Supabase sessions/bearer tokens, enforcing rate limits, parsing input with Zod, and returning sanitized errors without stack traces.
+8. **Automated Verification & Quality Assurance:**
+   - Authored test suite `scripts/verify-phase-02-3-metadata.js` (**111/111 tests passed, 100%**).
+   - TypeScript strict compile: 0 errors (`npm run type-check`).
+   - ESLint: 0 warnings, 0 errors (`npm run lint`).
+   - Next.js production build: dynamic route `/api/metadata/extract` recognized and compiled (`npm run build`).
+   - Next.js live dev server running on `http://localhost:3000`.
