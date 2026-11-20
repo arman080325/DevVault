@@ -9,6 +9,8 @@ export type IconName =
   | "bookmark"
   | "check"
   | "chevron"
+  | "chevron-left"
+  | "chevron-right"
   | "clock"
   | "code"
   | "collection"
@@ -66,6 +68,8 @@ export function Icon({ name, size = 18, className }: IconProps) {
     bookmark: <path d="M7 4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5V21l-5-3-5 3z" />,
     check: <path d="m5 12 4 4L19 6" />,
     chevron: <path d="m9 18 6-6-6-6" />,
+    "chevron-left": <path d="m15 18-6-6 6-6" />,
+    "chevron-right": <path d="m9 18 6-6-6-6" />,
     clock: (
       <>
         <circle cx="12" cy="12" r="9" />

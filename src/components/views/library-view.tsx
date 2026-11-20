@@ -8,6 +8,7 @@ import {
   CollectionItem,
   AdvancedSortOption,
   SavedSearchItem,
+  PaginatedResult,
 } from "@/data/figmaResources";
 import {
   matchResource,
@@ -21,6 +22,137 @@ import { SavedViewsDropdown } from "@/components/library/saved-views-dropdown";
 type ViewMode = "grid" | "list";
 type SortOption = AdvancedSortOption;
 type DatePreset = "all" | "today" | "7d" | "30d" | "year";
+
+interface LibraryGridCardProps {
+  resource: FigmaResource;
+  isBookmarked: boolean;
+  onOpenResource: (r: FigmaResource) => void;
+  onToggleBookmark?: (id: number) => void;
+}
+
+const LibraryGridCard = React.memo(function LibraryGridCard({
+  resource,
+  isBookmarked,
+  onOpenResource,
+  onToggleBookmark,
+}: LibraryGridCardProps) {
+  return (
+    <article className="library-card" key={resource.id}>
+      <button
+        className="card-art-button"
+        onClick={() => onOpenResource(resource)}
+        aria-label={`View ${resource.title}`}
+        type="button"
+      >
+        <ResourceArt
+          kind={resource.kind}
+          title={resource.title}
+          domain={resource.domain}
+          category={resource.category}
+          url={resource.url}
+          imageUrl={resource.imageUrl}
+        />
+      </button>
+      <div className="library-card-copy">
+        <div className="eyebrow-row">
+          <span>{resource.domain}</span>
+          <span>{resource.length}</span>
+        </div>
+        <button
+          className="card-title text-left focus:outline-none"
+          onClick={() => onOpenResource(resource)}
+          type="button"
+        >
+          <h3>{resource.title}</h3>
+        </button>
+        <p>{resource.description}</p>
+        <div className="card-foot">
+          <span>{resource.category}</span>
+          <div>
+            <small
+              className={`status ${resource.status
+                .toLowerCase()
+                .replace(" ", "-")}`}
+            >
+              {resource.status}
+            </small>
+            <button
+              className={isBookmarked ? "active" : ""}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBookmark?.(resource.id);
+              }}
+              aria-label={
+                isBookmarked ? "Remove bookmark" : "Bookmark resource"
+              }
+              title={isBookmarked ? "Bookmarked" : "Bookmark"}
+              type="button"
+            >
+              <Icon name="bookmark" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+});
+
+interface LibraryListRowProps {
+  resource: FigmaResource;
+  isBookmarked: boolean;
+  getSourceShort: (kind: FigmaResource["kind"]) => string;
+  onOpenResource: (r: FigmaResource) => void;
+  onToggleBookmark?: (id: number) => void;
+}
+
+const LibraryListRow = React.memo(function LibraryListRow({
+  resource,
+  isBookmarked,
+  getSourceShort,
+  onOpenResource,
+  onToggleBookmark,
+}: LibraryListRowProps) {
+  return (
+    <article className="recent-row" key={resource.id}>
+      <button
+        className={`source-tile ${resource.kind}`}
+        onClick={() => onOpenResource(resource)}
+        aria-label={resource.source}
+        type="button"
+      >
+        {getSourceShort(resource.kind)}
+      </button>
+
+      <button
+        className="recent-title text-left"
+        onClick={() => onOpenResource(resource)}
+        aria-label={resource.title}
+        type="button"
+      >
+        <span>{resource.source}</span>
+        <h3>{resource.title}</h3>
+      </button>
+
+      <span className="recent-category">{resource.category}</span>
+      <time>{resource.saved}</time>
+
+      <button
+        className={`row-action ${isBookmarked ? "active" : ""}`}
+        aria-label={
+          isBookmarked ? "Remove bookmark" : "Bookmark resource"
+        }
+        title={isBookmarked ? "Bookmarked" : "Bookmark"}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleBookmark?.(resource.id);
+        }}
+        type="button"
+      >
+        <Icon name="bookmark" />
+      </button>
+    </article>
+  );
+});
 
 interface LibraryViewProps {
   resources: FigmaResource[];
@@ -63,10 +195,12 @@ export function LibraryView({
   const [selectedBookmarked, setSelectedBookmarked] = useState<boolean | null>(null);
   const [selectedDatePreset, setSelectedDatePreset] = useState<DatePreset>("all");
 
-  // Search state management
+  // Search & Pagination state management
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 24;
   const [isSearching, setIsSearching] = useState(false);
   const [isOfflineOrError, setIsOfflineOrError] = useState(false);
-  const [remoteResults, setRemoteResults] = useState<FigmaResource[] | null>(null);
+  const [remotePaginatedResult, setRemotePaginatedResult] = useState<PaginatedResult<FigmaResource> | null>(null);
   const searchSeqRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const filterContainerRef = useRef<HTMLDivElement>(null);
@@ -175,6 +309,7 @@ export function LibraryView({
     setSelectedBookmarked(null);
     setSelectedDatePreset("all");
     setActiveViewId(null);
+    setCurrentPage(1);
   };
 
   // Atomically restore a saved search view
@@ -197,6 +332,7 @@ export function LibraryView({
     setSelectedBookmarked(c.bookmarked !== undefined ? c.bookmarked : null);
     setSelectedDatePreset(c.datePreset || "all");
     setSortOrder(c.sortOrder || "recent");
+    setCurrentPage(1);
 
     // 3. Mark active view & notify refresh
     setActiveViewId(view.id);
@@ -206,6 +342,17 @@ export function LibraryView({
       onToast(`Restored view "${view.name}"`);
     }
   };
+
+  // Reset pagination to page 1 whenever criteria change
+  const prevCriteriaRef = useRef("");
+  const currentCriteriaKey = `${query}|${filter}|${selectedCategory}|${selectedStatus}|${selectedCollection}|${selectedTags.join(",")}|${selectedBookmarked}|${selectedDatePreset}|${sortOrder}`;
+
+  useEffect(() => {
+    if (prevCriteriaRef.current && prevCriteriaRef.current !== currentCriteriaKey) {
+      setCurrentPage(1);
+    }
+    prevCriteriaRef.current = currentCriteriaKey;
+  }, [currentCriteriaKey]);
 
   // Click outside and Escape handling for popovers
   useEffect(() => {
@@ -260,7 +407,7 @@ export function LibraryView({
     }
   }, [isFilterOpen]);
 
-  // Debounced server search effect
+  // Debounced server search effect with pagination
   useEffect(() => {
     const cleanQ = query.trim();
     const hasAnyFilter = Boolean(
@@ -275,7 +422,7 @@ export function LibraryView({
     );
 
     if (!hasAnyFilter || !userId) {
-      setRemoteResults(null);
+      setRemotePaginatedResult(null);
       setIsSearching(false);
       return;
     }
@@ -293,7 +440,7 @@ export function LibraryView({
 
     const timer = setTimeout(async () => {
       try {
-        const results = await resourceService.searchResources(userId, {
+        const result = await resourceService.searchResourcesPaginated(userId, {
           query: cleanQ || undefined,
           platform: filter !== "All" ? filter : undefined,
           category: selectedCategory !== "All" ? selectedCategory : undefined,
@@ -302,11 +449,14 @@ export function LibraryView({
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           bookmarked: selectedBookmarked === true ? true : undefined,
           datePreset: selectedDatePreset,
+          sortOrder,
+          page: currentPage,
+          pageSize,
           signal: abortController.signal,
         });
 
         if (seq === searchSeqRef.current && !abortController.signal.aborted) {
-          setRemoteResults(results);
+          setRemotePaginatedResult(result);
           setIsSearching(false);
         }
       } catch (err: any) {
@@ -330,10 +480,13 @@ export function LibraryView({
     selectedTags,
     selectedBookmarked,
     selectedDatePreset,
+    sortOrder,
+    currentPage,
+    pageSize,
     userId,
   ]);
 
-  const visible = useMemo(() => {
+  const { visible, totalCount, totalPages } = useMemo(() => {
     const cleanQ = query.trim();
     const filterOptions = {
       platform: filter !== "All" ? filter : undefined,
@@ -353,25 +506,29 @@ export function LibraryView({
       return evaluateResourceOptions(resource, filterOptions);
     });
 
-    // 2. If remote search returns additional unique resources, enrich results
-    let combined = localMatches;
-    if (remoteResults && remoteResults.length > 0) {
-      const localIds = new Set(localMatches.map((r) => r.id));
-      const localRemoteIds = new Set(
-        localMatches.map((r) => r.remoteId).filter(Boolean)
-      );
+    const sortedLocal = sortResources(localMatches, sortOrder, cleanQ);
 
-      const additional = remoteResults.filter(
-        (r) =>
-          !localIds.has(r.id) &&
-          (!r.remoteId || !localRemoteIds.has(r.remoteId))
-      );
-      if (additional.length > 0) {
-        combined = [...localMatches, ...additional];
-      }
+    // 2. If remote paginated search returned results, use them directly
+    if (remotePaginatedResult) {
+      return {
+        visible: remotePaginatedResult.items,
+        totalCount: remotePaginatedResult.totalCount,
+        totalPages: remotePaginatedResult.totalPages,
+      };
     }
 
-    return sortResources(combined, sortOrder, cleanQ);
+    // 3. Otherwise paginate local matches deterministically
+    const localTotal = sortedLocal.length;
+    const pages = Math.max(1, Math.ceil(localTotal / pageSize));
+    const safePage = Math.max(1, Math.min(currentPage, pages));
+    const startIndex = (safePage - 1) * pageSize;
+    const paged = sortedLocal.slice(startIndex, startIndex + pageSize);
+
+    return {
+      visible: paged,
+      totalCount: localTotal,
+      totalPages: pages,
+    };
   }, [
     resources,
     query,
@@ -383,8 +540,42 @@ export function LibraryView({
     selectedBookmarked,
     selectedDatePreset,
     sortOrder,
-    remoteResults,
+    currentPage,
+    pageSize,
+    remotePaginatedResult,
   ]);
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | "...")[] = [];
+    pages.push(1);
+    if (currentPage > 3) {
+      pages.push("...");
+    }
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (currentPage < totalPages - 2) {
+      pages.push("...");
+    }
+    pages.push(totalPages);
+    return pages;
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    if (typeof window !== "undefined") {
+      const headEl = document.querySelector(".library-toolbar");
+      if (headEl) {
+        headEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  };
 
   const getSourceShort = (kind: FigmaResource["kind"]) => {
     switch (kind) {
@@ -975,7 +1166,7 @@ export function LibraryView({
       {/* Results Header Label */}
       <div className="results-label">
         <span>
-          Showing {visible.length} of {resources.length} discoveries
+          Showing {totalCount > 0 ? `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, totalCount)} of ${totalCount}` : `0 of 0`} discoveries
           {activeFilterCount > 0 && ` • ${activeFilterCount} filter${activeFilterCount > 1 ? "s" : ""} applied`}
         </span>
         <span>Sorted by {sortLabels[sortOrder].toLowerCase()}</span>
@@ -985,114 +1176,28 @@ export function LibraryView({
       {visible.length > 0 ? (
         view === "grid" ? (
           <div className="library-results grid">
-            {visible.map((resource) => {
-              const isBookmarked = Boolean(resource.pinned || resource.favorite);
-              return (
-                <article className="library-card" key={resource.id}>
-                  <button
-                    className="card-art-button"
-                    onClick={() => onOpenResource(resource)}
-                    aria-label={`View ${resource.title}`}
-                    type="button"
-                  >
-                    <ResourceArt
-                      kind={resource.kind}
-                      title={resource.title}
-                      domain={resource.domain}
-                      category={resource.category}
-                      url={resource.url}
-                      imageUrl={resource.imageUrl}
-                    />
-                  </button>
-                  <div className="library-card-copy">
-                    <div className="eyebrow-row">
-                      <span>{resource.domain}</span>
-                      <span>{resource.length}</span>
-                    </div>
-                    <button
-                      className="card-title text-left focus:outline-none"
-                      onClick={() => onOpenResource(resource)}
-                      type="button"
-                    >
-                      <h3>{resource.title}</h3>
-                    </button>
-                    <p>{resource.description}</p>
-                    <div className="card-foot">
-                      <span>{resource.category}</span>
-                      <div>
-                        <small
-                          className={`status ${resource.status
-                            .toLowerCase()
-                            .replace(" ", "-")}`}
-                        >
-                          {resource.status}
-                        </small>
-                        <button
-                          className={isBookmarked ? "active" : ""}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleBookmark?.(resource.id);
-                          }}
-                          aria-label={
-                            isBookmarked ? "Remove bookmark" : "Bookmark resource"
-                          }
-                          title={isBookmarked ? "Bookmarked" : "Bookmark"}
-                          type="button"
-                        >
-                          <Icon name="bookmark" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            {visible.map((resource) => (
+              <LibraryGridCard
+                key={resource.id}
+                resource={resource}
+                isBookmarked={Boolean(resource.pinned || resource.favorite)}
+                onOpenResource={onOpenResource}
+                onToggleBookmark={onToggleBookmark}
+              />
+            ))}
           </div>
         ) : (
           <div className="library-results list">
-            {visible.map((resource) => {
-              const isBookmarked = Boolean(resource.pinned || resource.favorite);
-              return (
-                <article className="recent-row" key={resource.id}>
-                  <button
-                    className={`source-tile ${resource.kind}`}
-                    onClick={() => onOpenResource(resource)}
-                    aria-label={resource.source}
-                    type="button"
-                  >
-                    {getSourceShort(resource.kind)}
-                  </button>
-
-                  <button
-                    className="recent-title text-left"
-                    onClick={() => onOpenResource(resource)}
-                    aria-label={resource.title}
-                    type="button"
-                  >
-                    <span>{resource.source}</span>
-                    <h3>{resource.title}</h3>
-                  </button>
-
-                  <span className="recent-category">{resource.category}</span>
-                  <time>{resource.saved}</time>
-
-                  <button
-                    className={`row-action ${isBookmarked ? "active" : ""}`}
-                    aria-label={
-                      isBookmarked ? "Remove bookmark" : "Bookmark resource"
-                    }
-                    title={isBookmarked ? "Bookmarked" : "Bookmark"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleBookmark?.(resource.id);
-                    }}
-                    type="button"
-                  >
-                    <Icon name="bookmark" />
-                  </button>
-                </article>
-              );
-            })}
+            {visible.map((resource) => (
+              <LibraryListRow
+                key={resource.id}
+                resource={resource}
+                isBookmarked={Boolean(resource.pinned || resource.favorite)}
+                getSourceShort={getSourceShort}
+                onOpenResource={onOpenResource}
+                onToggleBookmark={onToggleBookmark}
+              />
+            ))}
           </div>
         )
       ) : (
@@ -1122,6 +1227,59 @@ export function LibraryView({
             Reset all filters
           </button>
         </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <nav className="library-pagination" aria-label="Library pagination">
+          <div className="pagination-info">
+            Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} of {totalCount} discoveries
+          </div>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="pagination-btn prev-btn"
+              disabled={currentPage <= 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+              aria-label="Previous page"
+            >
+              <Icon name="chevron-left" size={14} />
+              <span>Previous</span>
+            </button>
+
+            <div className="pagination-pages" role="group" aria-label="Pagination pages">
+              {pageNumbers.map((p, idx) =>
+                p === "..." ? (
+                  <span key={`ellipsis-${idx}`} className="pagination-ellipsis">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={`page-${p}`}
+                    type="button"
+                    className={`pagination-page-btn ${p === currentPage ? "active" : ""}`}
+                    onClick={() => handlePageChange(p as number)}
+                    aria-current={p === currentPage ? "page" : undefined}
+                    aria-label={`Page ${p}`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="pagination-btn next-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              aria-label="Next page"
+            >
+              <span>Next</span>
+              <Icon name="chevron-right" size={14} />
+            </button>
+          </div>
+        </nav>
       )}
 
       {/* Save View Modal */}

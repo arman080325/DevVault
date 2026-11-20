@@ -36,6 +36,20 @@ export type LegacySortOption = "title";
 
 export type SortOption = AdvancedSortOption | LegacySortOption;
 
+export interface PaginationParams {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
 export interface SavedSearchItem {
   id: string;
   userId?: string;
