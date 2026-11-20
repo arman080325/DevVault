@@ -3,15 +3,23 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt } from "@/components/resources/resource-art";
-import { FigmaResource, CollectionItem } from "@/data/figmaResources";
+import {
+  FigmaResource,
+  CollectionItem,
+  AdvancedSortOption,
+  SavedSearchItem,
+} from "@/data/figmaResources";
 import {
   matchResource,
   evaluateResourceOptions,
+  sortResources,
 } from "@/lib/search/search-matcher";
 import { resourceService } from "@/services/resource-service";
+import { SaveViewModal } from "@/components/library/save-view-modal";
+import { SavedViewsDropdown } from "@/components/library/saved-views-dropdown";
 
 type ViewMode = "grid" | "list";
-type SortOption = "recent" | "oldest" | "title";
+type SortOption = AdvancedSortOption;
 type DatePreset = "all" | "today" | "7d" | "30d" | "year";
 
 interface LibraryViewProps {
@@ -39,9 +47,12 @@ export function LibraryView({
 }: LibraryViewProps) {
   const [view, setView] = useState<ViewMode>("grid");
   const [filter, setFilter] = useState("All");
-  const [sortOrder, setSortOrder] = useState<SortOption>("recent");
+  const [sortOrder, setSortOrder] = useState<AdvancedSortOption>("recent");
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [viewsRefreshTrigger, setViewsRefreshTrigger] = useState(0);
 
   // Advanced Filtering State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -60,13 +71,19 @@ export function LibraryView({
   const abortControllerRef = useRef<AbortController | null>(null);
   const filterContainerRef = useRef<HTMLDivElement>(null);
 
+  const sortContainerRef = useRef<HTMLDivElement>(null);
+  const moreContainerRef = useRef<HTMLDivElement>(null);
+
   const baseFilterOptions = ["All", "GitHub", "YouTube", "Article", "Documentation"];
   const moreFilterOptions = ["Instagram", "Motion"];
 
-  const sortLabels: Record<SortOption, string> = {
-    recent: "Recently saved",
-    oldest: "Oldest saved",
-    title: "Title (A-Z)",
+  const sortLabels: Record<AdvancedSortOption, string> = {
+    recent: "Recently added",
+    oldest: "Oldest first",
+    "title-asc": "Title A–Z",
+    "title-desc": "Title Z–A",
+    updated: "Recently updated",
+    relevance: "Best match",
   };
 
   const datePresetLabels: Record<DatePreset, string> = {
@@ -157,16 +174,60 @@ export function LibraryView({
     setSelectedTags([]);
     setSelectedBookmarked(null);
     setSelectedDatePreset("all");
+    setActiveViewId(null);
   };
 
-  // Click outside and Escape handling for filter popover
+  // Atomically restore a saved search view
+  const handleRestoreView = (view: SavedSearchItem) => {
+    // 1. Abort any in-flight async request to prevent stale overwrite
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    searchSeqRef.current++;
+    setIsSearching(false);
+
+    // 2. Synchronously apply all criteria dimensions
+    const c = (view as any).criteria || view;
+    onQueryChange(c.query || "");
+    setFilter(c.platform || "All");
+    setSelectedCategory(c.category || "All");
+    setSelectedStatus(c.status || "All");
+    setSelectedCollection(c.collection || "All");
+    setSelectedTags(c.tags && c.tags.length > 0 ? [...c.tags] : []);
+    setSelectedBookmarked(c.bookmarked !== undefined ? c.bookmarked : null);
+    setSelectedDatePreset(c.datePreset || "all");
+    setSortOrder(c.sortOrder || "recent");
+
+    // 3. Mark active view & notify refresh
+    setActiveViewId(view.id);
+    setViewsRefreshTrigger((prev) => prev + 1);
+
+    if (onToast) {
+      onToast(`Restored view "${view.name}"`);
+    }
+  };
+
+  // Click outside and Escape handling for popovers
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
       if (
         filterContainerRef.current &&
-        !filterContainerRef.current.contains(event.target as Node)
+        !filterContainerRef.current.contains(target)
       ) {
         setIsFilterOpen(false);
+      }
+      if (
+        sortContainerRef.current &&
+        !sortContainerRef.current.contains(target)
+      ) {
+        setIsSortOpen(false);
+      }
+      if (
+        moreContainerRef.current &&
+        !moreContainerRef.current.contains(target)
+      ) {
+        setIsMoreOpen(false);
       }
     }
 
@@ -178,7 +239,7 @@ export function LibraryView({
       }
     }
 
-    if (isFilterOpen) {
+    if (isFilterOpen || isSortOpen || isMoreOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("keydown", handleKeyDown);
     }
@@ -186,7 +247,7 @@ export function LibraryView({
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isFilterOpen]);
+  }, [isFilterOpen, isSortOpen, isMoreOpen]);
 
   // Lock body scroll on mobile bottom sheet
   useEffect(() => {
@@ -272,21 +333,6 @@ export function LibraryView({
     userId,
   ]);
 
-  const sortResources = (list: FigmaResource[], order: SortOption) => {
-    return [...list].sort((a, b) => {
-      if (order === "recent") {
-        return b.id - a.id;
-      }
-      if (order === "oldest") {
-        return a.id - b.id;
-      }
-      if (order === "title") {
-        return a.title.localeCompare(b.title);
-      }
-      return 0;
-    });
-  };
-
   const visible = useMemo(() => {
     const cleanQ = query.trim();
     const filterOptions = {
@@ -325,7 +371,7 @@ export function LibraryView({
       }
     }
 
-    return sortResources(combined, sortOrder);
+    return sortResources(combined, sortOrder, cleanQ);
   }, [
     resources,
     query,
@@ -436,7 +482,7 @@ export function LibraryView({
           ))}
 
           {/* More Filters Dropdown */}
-          <div className="more-container">
+          <div className="more-container" ref={moreContainerRef}>
             <button
               className={`more-filter ${moreFilterOptions.includes(filter) ? "active" : ""}`}
               onClick={() => setIsMoreOpen((prev) => !prev)}
@@ -702,9 +748,19 @@ export function LibraryView({
           )}
         </div>
 
+        {/* Saved Views Dropdown */}
+        <SavedViewsDropdown
+          userId={userId}
+          activeViewId={activeViewId}
+          onSelectView={handleRestoreView}
+          onOpenSaveModal={() => setIsSaveModalOpen(true)}
+          canSaveActiveView={activeFilterCount > 0 || query.trim().length > 0}
+          refreshTrigger={viewsRefreshTrigger}
+        />
+
         {/* Sort and View Toggle */}
         <div className="sort-view">
-          <div className="sort-container">
+          <div className="sort-container" ref={sortContainerRef}>
             <button
               className="sort-btn"
               onClick={() => setIsSortOpen((prev) => !prev)}
@@ -717,12 +773,22 @@ export function LibraryView({
 
             {isSortOpen && (
               <div className="dropdown-popover" role="menu">
-                {(["recent", "oldest", "title"] as SortOption[]).map((opt) => (
+                {(
+                  [
+                    "recent",
+                    "oldest",
+                    "title-asc",
+                    "title-desc",
+                    "updated",
+                    "relevance",
+                  ] as AdvancedSortOption[]
+                ).map((opt) => (
                   <button
                     key={opt}
                     className={sortOrder === opt ? "active" : ""}
                     onClick={() => {
                       setSortOrder(opt);
+                      setActiveViewId(null);
                       setIsSortOpen(false);
                     }}
                     type="button"
@@ -760,15 +826,33 @@ export function LibraryView({
       </div>
 
       {/* Active Filters Bar */}
-      {activeFilterCount > 0 && (
-        <div className="active-filters-bar" role="region" aria-label="Active filters">
+      {(activeFilterCount > 0 || query.trim().length > 0) && (
+        <div className="active-filters-bar" role="region" aria-label="Active filters and criteria">
           <span className="active-filters-label">Active:</span>
           <div className="active-filters-chips">
+            {query.trim().length > 0 && (
+              <span className="active-filter-chip query-chip">
+                Search: &quot;{query.trim().length > 20 ? query.trim().slice(0, 20) + "…" : query.trim()}&quot;
+                <button
+                  onClick={() => {
+                    onQueryChange("");
+                    setActiveViewId(null);
+                  }}
+                  aria-label="Clear search query"
+                  type="button"
+                >
+                  <Icon name="x" size={12} />
+                </button>
+              </span>
+            )}
             {filter !== "All" && (
               <span className="active-filter-chip">
                 Source: {filter}
                 <button
-                  onClick={() => setFilter("All")}
+                  onClick={() => {
+                    setFilter("All");
+                    setActiveViewId(null);
+                  }}
                   aria-label={`Remove ${filter} source filter`}
                   type="button"
                 >
@@ -780,7 +864,10 @@ export function LibraryView({
               <span className="active-filter-chip">
                 Category: {selectedCategory}
                 <button
-                  onClick={() => setSelectedCategory("All")}
+                  onClick={() => {
+                    setSelectedCategory("All");
+                    setActiveViewId(null);
+                  }}
                   aria-label={`Remove ${selectedCategory} category filter`}
                   type="button"
                 >
@@ -792,7 +879,10 @@ export function LibraryView({
               <span className="active-filter-chip">
                 Status: {selectedStatus}
                 <button
-                  onClick={() => setSelectedStatus("All")}
+                  onClick={() => {
+                    setSelectedStatus("All");
+                    setActiveViewId(null);
+                  }}
                   aria-label={`Remove ${selectedStatus} status filter`}
                   type="button"
                 >
@@ -804,7 +894,10 @@ export function LibraryView({
               <span className="active-filter-chip">
                 Collection: {selectedCollection}
                 <button
-                  onClick={() => setSelectedCollection("All")}
+                  onClick={() => {
+                    setSelectedCollection("All");
+                    setActiveViewId(null);
+                  }}
                   aria-label={`Remove ${selectedCollection} collection filter`}
                   type="button"
                 >
@@ -816,7 +909,10 @@ export function LibraryView({
               <span className="active-filter-chip tag-chip" key={tag}>
                 #{tag}
                 <button
-                  onClick={() => handleToggleTag(tag)}
+                  onClick={() => {
+                    handleToggleTag(tag);
+                    setActiveViewId(null);
+                  }}
                   aria-label={`Remove ${tag} tag filter`}
                   type="button"
                 >
@@ -828,7 +924,10 @@ export function LibraryView({
               <span className="active-filter-chip">
                 Bookmarked
                 <button
-                  onClick={() => setSelectedBookmarked(null)}
+                  onClick={() => {
+                    setSelectedBookmarked(null);
+                    setActiveViewId(null);
+                  }}
                   aria-label="Remove bookmarked filter"
                   type="button"
                 >
@@ -840,7 +939,10 @@ export function LibraryView({
               <span className="active-filter-chip">
                 Date: {datePresetLabels[selectedDatePreset]}
                 <button
-                  onClick={() => setSelectedDatePreset("all")}
+                  onClick={() => {
+                    setSelectedDatePreset("all");
+                    setActiveViewId(null);
+                  }}
                   aria-label="Remove date filter"
                   type="button"
                 >
@@ -848,6 +950,17 @@ export function LibraryView({
                 </button>
               </span>
             )}
+
+            <button
+              className="save-view-btn"
+              onClick={() => setIsSaveModalOpen(true)}
+              type="button"
+              title="Save current search & filter criteria as a view"
+            >
+              <Icon name="bookmark" size={13} />
+              <span>Save view</span>
+            </button>
+
             <button
               className="clear-all-filters-btn"
               onClick={resetFilters}
@@ -1010,6 +1123,30 @@ export function LibraryView({
           </button>
         </div>
       )}
+
+      {/* Save View Modal */}
+      <SaveViewModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        onSaved={(item) => {
+          setIsSaveModalOpen(false);
+          setActiveViewId(item.id);
+          setViewsRefreshTrigger((prev) => prev + 1);
+          if (onToast) {
+            onToast(`Saved view "${item.name}"`);
+          }
+        }}
+        userId={userId}
+        currentQuery={query}
+        currentFilter={filter}
+        currentCategory={selectedCategory}
+        currentStatus={selectedStatus}
+        currentCollection={selectedCollection}
+        currentTags={selectedTags}
+        currentBookmarked={selectedBookmarked}
+        currentDatePreset={selectedDatePreset}
+        currentSortOrder={sortOrder}
+      />
     </div>
   );
 }

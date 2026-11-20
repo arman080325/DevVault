@@ -1,4 +1,11 @@
-import type { FigmaResource } from "../../data/figmaResources";
+import type {
+  FigmaResource,
+  SortOption,
+  AdvancedSortOption,
+  SavedSearchItem,
+} from "../../data/figmaResources";
+
+export type { SortOption, AdvancedSortOption, SavedSearchItem };
 
 export interface SearchMatchOptions {
   /** Filter by specific source/platform (e.g. "GitHub", "YouTube") or "All" */
@@ -25,6 +32,8 @@ export interface SearchMatchOptions {
   dateTo?: string | Date;
   /** Predefined date ranges */
   datePreset?: "all" | "today" | "7d" | "30d" | "year";
+  /** Optional sort order applied to matched results */
+  sortOrder?: SortOption;
 }
 
 /**
@@ -72,9 +81,26 @@ export function getResourceTimestamp(resource: FigmaResource): number | null {
   if (s === "yesterday") {
     return now - 24 * 60 * 60 * 1000;
   }
+  const daysAgoMatch = s.match(/^(\d+)\s+days?\s+ago$/);
+  if (daysAgoMatch) {
+    const days = parseInt(daysAgoMatch[1], 10);
+    return now - days * 24 * 60 * 60 * 1000;
+  }
   const parsed = Date.parse(resource.saved);
   if (!isNaN(parsed)) return parsed;
   return null;
+}
+
+/**
+ * Extracts a numeric timestamp from a resource's updatedAt field,
+ * falling back to getResourceTimestamp(resource).
+ */
+export function getResourceUpdatedTimestamp(resource: FigmaResource): number | null {
+  if (resource.updatedAt) {
+    const ts = new Date(resource.updatedAt).getTime();
+    if (!isNaN(ts)) return ts;
+  }
+  return getResourceTimestamp(resource);
 }
 
 /**
@@ -386,8 +412,149 @@ export function searchResources(
     }
   }
 
-  // Sort by score descending
+  // If sortOrder is explicitly specified, sort using sortResources
+  if (options?.sortOrder) {
+    const rawMatches = resultsWithScore.map((item) => item.resource);
+    return sortResources(rawMatches, options.sortOrder, query);
+  }
+
+  // Default: sort by score descending
   resultsWithScore.sort((a, b) => b.score - a.score);
 
   return resultsWithScore.map((item) => item.resource);
+}
+
+/**
+ * Internal comparator by timestamp for 'recent', 'oldest', and 'updated'.
+ * Handles missing/invalid timestamps safely by ordering them last.
+ * Uses deterministic tie-breaking on equal timestamps.
+ */
+function compareByTimestamp(
+  a: FigmaResource,
+  b: FigmaResource,
+  direction: "desc" | "asc",
+  useUpdated = false
+): number {
+  const tsA = useUpdated ? getResourceUpdatedTimestamp(a) : getResourceTimestamp(a);
+  const tsB = useUpdated ? getResourceUpdatedTimestamp(b) : getResourceTimestamp(b);
+
+  // Missing or invalid timestamps are consistently sorted to the end
+  if (tsA !== null && tsB === null) return -1;
+  if (tsA === null && tsB !== null) return 1;
+
+  if (tsA !== null && tsB !== null && tsA !== tsB) {
+    return direction === "desc" ? tsB - tsA : tsA - tsB;
+  }
+
+  // Deterministic tie-breaker
+  const idDiff = direction === "desc" ? (b.id || 0) - (a.id || 0) : (a.id || 0) - (b.id || 0);
+  if (idDiff !== 0) return idDiff;
+
+  const titleCmp = (a.title || "").localeCompare(b.title || "", undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
+  if (titleCmp !== 0) {
+    return direction === "desc" ? -titleCmp : titleCmp;
+  }
+
+  return (a.remoteId || "").localeCompare(b.remoteId || "");
+}
+
+/**
+ * Internal comparator by title for 'title-asc' and 'title-desc'.
+ * Uses locale-aware, case-insensitive natural sort.
+ * Uses deterministic tie-breaking on equal titles.
+ */
+function compareByTitle(
+  a: FigmaResource,
+  b: FigmaResource,
+  direction: "asc" | "desc"
+): number {
+  const titleA = a.title || "";
+  const titleB = b.title || "";
+  const cmp = titleA.localeCompare(titleB, undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
+
+  if (cmp !== 0) {
+    return direction === "asc" ? cmp : -cmp;
+  }
+
+  // Deterministic tie-breaker on identical titles
+  const idDiff = direction === "asc" ? (a.id || 0) - (b.id || 0) : (b.id || 0) - (a.id || 0);
+  if (idDiff !== 0) return idDiff;
+
+  return direction === "asc"
+    ? (a.remoteId || "").localeCompare(b.remoteId || "")
+    : (b.remoteId || "").localeCompare(a.remoteId || "");
+}
+
+/**
+ * Internal comparator by relevance match score.
+ * Falls back to 'recent' if query is empty or scores are identical.
+ */
+function compareByRelevance(
+  a: FigmaResource,
+  b: FigmaResource,
+  tokens: string[]
+): number {
+  if (tokens.length === 0) {
+    return compareByTimestamp(a, b, "desc", false);
+  }
+
+  const scoreA = calculateMatchScore(a, tokens);
+  const scoreB = calculateMatchScore(b, tokens);
+
+  if (scoreA !== scoreB) {
+    return scoreB - scoreA;
+  }
+
+  // Fall back to recent on equal scores
+  return compareByTimestamp(a, b, "desc", false);
+}
+
+/**
+ * Pure sorting function for an array of FigmaResources.
+ * Never mutates the input array; always returns a new sorted shallow copy.
+ *
+ * Supported Sort Options:
+ * - 'recent': Recently saved (createdAt / saved descending)
+ * - 'oldest': Oldest saved (createdAt / saved ascending)
+ * - 'title-asc' | 'title': Title A-Z (locale-aware string comparison)
+ * - 'title-desc': Title Z-A (locale-aware string comparison)
+ * - 'updated': Recently updated (updatedAt descending, fallback to createdAt / saved)
+ * - 'relevance': Most relevant by search match score (fallback to 'recent')
+ */
+export function sortResources(
+  list: FigmaResource[],
+  order: SortOption = "recent",
+  query?: string
+): FigmaResource[] {
+  if (!list || list.length === 0) {
+    return [];
+  }
+
+  const copy = [...list];
+  const tokens = order === "relevance" ? tokenizeQuery(query) : [];
+
+  return copy.sort((a, b) => {
+    switch (order) {
+      case "oldest":
+        return compareByTimestamp(a, b, "asc", false);
+      case "title-asc":
+      case "title": // Legacy alias
+        return compareByTitle(a, b, "asc");
+      case "title-desc":
+        return compareByTitle(a, b, "desc");
+      case "updated":
+        return compareByTimestamp(a, b, "desc", true);
+      case "relevance":
+        return compareByRelevance(a, b, tokens);
+      case "recent":
+      default:
+        return compareByTimestamp(a, b, "desc", false);
+    }
+  });
 }
