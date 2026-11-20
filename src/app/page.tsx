@@ -154,6 +154,9 @@ function DashboardContent() {
       setAuthSession(session);
       setAuthUser(user);
 
+      // Invalidate in-memory query cache on auth session changes to guarantee user isolation
+      resourceService.invalidateCache();
+
       if (user) {
         const remoteProfile = await authService.getProfile(user.id);
         if (remoteProfile) {
@@ -222,6 +225,9 @@ function DashboardContent() {
       setAuthUser(null);
       setAuthSession(null);
       setMigrationAvailable(false);
+
+      // Invalidate in-memory query cache on sign out
+      resourceService.invalidateCache();
 
       // Restore local data so unauthenticated view does not leak cloud data
       const localResRaw = localStorage.getItem("devvault-local-resources");
@@ -488,6 +494,7 @@ function DashboardContent() {
             prev.map((r) => (r.collection === oldName ? { ...r, collection: updates.name } : r))
           );
         }
+        resourceService.invalidateCache(authUser?.id);
         showToast("Shelf updated");
       } catch (err) {
         console.warn("Failed to update collection:", err);
@@ -505,6 +512,7 @@ function DashboardContent() {
         setResources((prev) =>
           prev.map((r) => (r.collection === name ? { ...r, collection: undefined } : r))
         );
+        resourceService.invalidateCache(authUser?.id);
         showToast(`Shelf "${name}" deleted`);
       } catch (err) {
         console.warn("Failed to delete collection:", err);

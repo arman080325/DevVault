@@ -86,6 +86,7 @@ export function ResourceArt({
           alt={title || `${platform.label} thumbnail`}
           className="resource-art-img"
           loading="lazy"
+          decoding="async"
           onError={() => setImgError(true)}
         />
         <div className="resource-art-thumbnail-badge">

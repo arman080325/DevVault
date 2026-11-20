@@ -3,9 +3,10 @@ import type {
   SortOption,
   AdvancedSortOption,
   SavedSearchItem,
+  PaginatedResult,
 } from "../../data/figmaResources";
 
-export type { SortOption, AdvancedSortOption, SavedSearchItem };
+export type { SortOption, AdvancedSortOption, SavedSearchItem, PaginatedResult };
 
 export interface SearchMatchOptions {
   /** Filter by specific source/platform (e.g. "GitHub", "YouTube") or "All" */
@@ -34,6 +35,10 @@ export interface SearchMatchOptions {
   datePreset?: "all" | "today" | "7d" | "30d" | "year";
   /** Optional sort order applied to matched results */
   sortOrder?: SortOption;
+  /** Optional 1-based page index */
+  page?: number;
+  /** Optional items per page */
+  pageSize?: number;
 }
 
 /**
@@ -422,6 +427,44 @@ export function searchResources(
   resultsWithScore.sort((a, b) => b.score - a.score);
 
   return resultsWithScore.map((item) => item.resource);
+}
+
+/**
+ * Paginates an array of items given page index (1-based) and pageSize.
+ * Ensures stable boundary handling, bounds clamping, and deterministic counts.
+ */
+export function paginateResources<T>(
+  list: T[],
+  page: number = 1,
+  pageSize: number = 24
+): PaginatedResult<T> {
+  const safePageSize = Math.max(1, pageSize);
+  const totalCount = list.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+  const startIndex = (safePage - 1) * safePageSize;
+  const items = list.slice(startIndex, startIndex + safePageSize);
+
+  return {
+    items,
+    totalCount,
+    page: safePage,
+    pageSize: safePageSize,
+    totalPages,
+    hasMore: safePage < totalPages,
+  };
+}
+
+/**
+ * Searches and paginates resources synchronously in a single deterministic pass.
+ */
+export function searchResourcesPaginated(
+  resources: FigmaResource[],
+  query?: string,
+  options?: SearchMatchOptions
+): PaginatedResult<FigmaResource> {
+  const matches = searchResources(resources, query, options);
+  return paginateResources(matches, options?.page ?? 1, options?.pageSize ?? 24);
 }
 
 /**

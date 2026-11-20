@@ -1,13 +1,20 @@
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { type ResourceRow } from "@/lib/supabase/types";
-import { FigmaResource, SortOption } from "@/data/figmaResources";
+import {
+  FigmaResource,
+  SortOption,
+  PaginatedResult,
+  PaginationParams,
+} from "@/data/figmaResources";
 import { ResourceKind } from "@/components/resources/resource-art";
 import {
   searchResources as searchMatcherResources,
   sortResources,
   SearchMatchOptions,
   resolveDatePresetBoundaries,
+  paginateResources,
 } from "@/lib/search/search-matcher";
+import { resourceCache } from "@/lib/cache/resource-cache";
 
 export interface SearchResourceCriteria {
   query?: string;
@@ -25,6 +32,8 @@ export interface SearchResourceCriteria {
   datePreset?: "all" | "today" | "7d" | "30d" | "year";
   sortOrder?: SortOption;
   signal?: AbortSignal;
+  page?: number;
+  pageSize?: number;
 }
 
 const LOCAL_STORAGE_KEY = "devvault-local-resources";
@@ -127,23 +136,39 @@ export const resourceService = {
     }
   },
 
-  // Fetch all resources with tags & collections for current user
-  async fetchResources(userId?: string): Promise<FigmaResource[]> {
-    const supabase = getBrowserSupabase();
+  // Helper to read local cache
+  getLocalResources(): FigmaResource[] {
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  },
 
+  // Explicit cache invalidation trigger
+  invalidateCache(userId?: string | null): void {
+    resourceCache.invalidateUser(userId);
+  },
+
+  // Fetch all resources with tags & collections for current user
+  async fetchResources(
+    userId?: string | null,
+    params?: PaginationParams
+  ): Promise<FigmaResource[]> {
+    if (params?.page !== undefined || params?.pageSize !== undefined) {
+      const paginated = await this.fetchResourcesPaginated(userId, params);
+      return paginated.items;
+    }
+
+    const supabase = getBrowserSupabase();
     if (!supabase || !userId) {
-      // Return local stored resources or fallback
-      try {
-        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (raw) {
-          return JSON.parse(raw);
-        }
-      } catch {}
-      return [];
+      return this.getLocalResources();
     }
 
     try {
-      // Fetch resources
       const { data: rows, error } = await supabase
         .from("resources")
         .select(`
@@ -156,7 +181,8 @@ export const resourceService = {
           )
         `)
         .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
 
       if (error) throw error;
       if (!rows) return [];
@@ -170,58 +196,84 @@ export const resourceService = {
       });
     } catch (err) {
       console.warn("fetchResources error, falling back to local storage:", err);
-      try {
-        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-      return [];
+      return this.getLocalResources();
+    }
+  },
+
+  // Paginated user resources retrieval
+  async fetchResourcesPaginated(
+    userId?: string | null,
+    params?: PaginationParams
+  ): Promise<PaginatedResult<FigmaResource>> {
+    const page = Math.max(1, params?.page ?? 1);
+    const pageSize = Math.max(1, params?.pageSize ?? 24);
+    const supabase = getBrowserSupabase();
+
+    if (!supabase || !userId) {
+      const local = this.getLocalResources();
+      return paginateResources(local, page, pageSize);
+    }
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    try {
+      const { data: rows, count, error } = await supabase
+        .from("resources")
+        .select(`
+          *,
+          resource_tags (
+            tags ( name )
+          ),
+          collection_resources (
+            collections ( name )
+          )
+        `, { count: "exact" })
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const totalCount = count ?? (rows ? rows.length : 0);
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+      const items = (rows || []).map((r: any) => {
+        const tags = (r.resource_tags || [])
+          .map((rt: any) => rt.tags?.name)
+          .filter(Boolean);
+        const colName = r.collection_resources?.[0]?.collections?.name;
+        return mapRowToFigmaResource(r, tags, colName);
+      });
+
+      return {
+        items,
+        totalCount,
+        page,
+        pageSize,
+        totalPages,
+        hasMore: page < totalPages,
+      };
+    } catch (err) {
+      console.warn("fetchResourcesPaginated error, falling back to local storage:", err);
+      const local = this.getLocalResources();
+      return paginateResources(local, page, pageSize);
     }
   },
 
   // Local cache search fallback using normalized search-matcher
   searchLocalCache(criteria?: SearchResourceCriteria): FigmaResource[] {
-    try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const list: FigmaResource[] = raw ? JSON.parse(raw) : [];
-      return searchMatcherResources(list, criteria?.query, {
-        platform: criteria?.platform,
-        status: criteria?.status,
-        category: criteria?.category,
-        collection: criteria?.collection,
-        tag: criteria?.tag,
-        tags: criteria?.tags,
-        favorite: criteria?.favorite,
-        pinned: criteria?.pinned,
-        bookmarked: criteria?.bookmarked,
-        dateFrom: criteria?.dateFrom,
-        dateTo: criteria?.dateTo,
-        datePreset: criteria?.datePreset,
-        sortOrder: criteria?.sortOrder,
-      });
-    } catch {
-      return [];
-    }
+    const paginated = this.searchLocalCachePaginated(criteria);
+    return paginated.items;
   },
 
-  // Dedicated search service supporting Supabase RLS, AbortSignal, and local fallback
-  async searchResources(
-    userId?: string | null,
+  // Local cache search fallback with pagination
+  searchLocalCachePaginated(
     criteria?: SearchResourceCriteria
-  ): Promise<FigmaResource[]> {
-    const supabase = getBrowserSupabase();
-
-    // 1. Fallback immediately if unauthenticated or no Supabase client
-    if (!supabase || !userId) {
-      return this.searchLocalCache(criteria);
-    }
-
-    if (criteria?.signal?.aborted) {
-      return [];
-    }
-
+  ): PaginatedResult<FigmaResource> {
+    const list = this.getLocalResources();
     const cleanQ = (criteria?.query || "").trim();
-
-    // Normalize tags
     const combinedTags: string[] = [];
     if (Array.isArray(criteria?.tags) && criteria.tags.length > 0) {
       combinedTags.push(...criteria.tags.filter(Boolean));
@@ -230,40 +282,126 @@ export const resourceService = {
       combinedTags.push(criteria.tag);
     }
 
-    // Resolve date preset boundaries
-    const dateBoundaries = resolveDatePresetBoundaries(criteria?.datePreset);
-    const resolvedFrom = criteria?.dateFrom
-      ? new Date(criteria.dateFrom).toISOString()
-      : dateBoundaries.dateFrom
-      ? dateBoundaries.dateFrom.toISOString()
-      : null;
-    const resolvedTo = criteria?.dateTo
-      ? new Date(criteria.dateTo).toISOString()
-      : dateBoundaries.dateTo
-      ? dateBoundaries.dateTo.toISOString()
-      : null;
+    const matched = searchMatcherResources(list, cleanQ, {
+      platform: criteria?.platform,
+      status: criteria?.status,
+      category: criteria?.category,
+      collection: criteria?.collection,
+      tag: criteria?.tag,
+      tags: combinedTags,
+      favorite: criteria?.favorite,
+      pinned: criteria?.pinned,
+      bookmarked: criteria?.bookmarked,
+      dateFrom: criteria?.dateFrom,
+      dateTo: criteria?.dateTo,
+      datePreset: criteria?.datePreset,
+      sortOrder: criteria?.sortOrder,
+    });
 
-    // If query is empty and no specific filters are active, use fetchResources
-    const hasActiveFilters = Boolean(
-      cleanQ ||
-      (criteria?.platform && criteria.platform !== "All") ||
-      (criteria?.category && criteria.category !== "All") ||
-      (criteria?.status && criteria.status !== "All") ||
-      (criteria?.collection && criteria.collection !== "All") ||
-      combinedTags.length > 0 ||
-      typeof criteria?.favorite === "boolean" ||
-      typeof criteria?.pinned === "boolean" ||
-      typeof criteria?.bookmarked === "boolean" ||
-      resolvedFrom ||
-      resolvedTo
-    );
+    const page = Math.max(1, criteria?.page ?? 1);
+    const pageSize = Math.max(1, criteria?.pageSize ?? 24);
+    return paginateResources(matched, page, pageSize);
+  },
 
-    if (!hasActiveFilters) {
-      return this.fetchResources(userId);
+  // Dedicated search service supporting Supabase RLS, AbortSignal, and local fallback
+  async searchResources(
+    userId?: string | null,
+    criteria?: SearchResourceCriteria
+  ): Promise<FigmaResource[]> {
+    const paginated = await this.searchResourcesPaginated(userId, criteria);
+    return paginated.items;
+  },
+
+  // Paginated search service with LRU query caching, request deduplication, and RLS
+  async searchResourcesPaginated(
+    userId?: string | null,
+    criteria?: SearchResourceCriteria
+  ): Promise<PaginatedResult<FigmaResource>> {
+    const page = Math.max(1, criteria?.page ?? 1);
+    const pageSize = Math.max(1, criteria?.pageSize ?? 24);
+
+    if (criteria?.signal?.aborted) {
+      return {
+        items: [],
+        totalCount: 0,
+        page,
+        pageSize,
+        totalPages: 1,
+        hasMore: false,
+      };
     }
 
-    try {
-      // 2. Try the PostgreSQL search RPC function if available (from 008_advanced_filtering.sql / 007_search_indexes.sql)
+    const cacheKey = resourceCache.generateKey(userId, criteria);
+    const cached = resourceCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const inFlight = resourceCache.getInFlight(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const executionPromise = (async (): Promise<PaginatedResult<FigmaResource>> => {
+      const supabase = getBrowserSupabase();
+      if (!supabase || !userId) {
+        return this.searchLocalCachePaginated(criteria);
+      }
+
+      if (criteria?.signal?.aborted) {
+        return {
+          items: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 1,
+          hasMore: false,
+        };
+      }
+
+      const cleanQ = (criteria?.query || "").trim();
+      const combinedTags: string[] = [];
+      if (Array.isArray(criteria?.tags) && criteria.tags.length > 0) {
+        combinedTags.push(...criteria.tags.filter(Boolean));
+      }
+      if (criteria?.tag && !combinedTags.includes(criteria.tag)) {
+        combinedTags.push(criteria.tag);
+      }
+
+      const dateBoundaries = resolveDatePresetBoundaries(criteria?.datePreset);
+      const resolvedFrom = criteria?.dateFrom
+        ? new Date(criteria.dateFrom).toISOString()
+        : dateBoundaries.dateFrom
+        ? dateBoundaries.dateFrom.toISOString()
+        : null;
+      const resolvedTo = criteria?.dateTo
+        ? new Date(criteria.dateTo).toISOString()
+        : dateBoundaries.dateTo
+        ? dateBoundaries.dateTo.toISOString()
+        : null;
+
+      const hasActiveFilters = Boolean(
+        cleanQ ||
+        (criteria?.platform && criteria.platform !== "All") ||
+        (criteria?.category && criteria.category !== "All") ||
+        (criteria?.status && criteria.status !== "All") ||
+        (criteria?.collection && criteria.collection !== "All") ||
+        combinedTags.length > 0 ||
+        typeof criteria?.favorite === "boolean" ||
+        typeof criteria?.pinned === "boolean" ||
+        typeof criteria?.bookmarked === "boolean" ||
+        resolvedFrom ||
+        resolvedTo
+      );
+
+      if (!hasActiveFilters) {
+        return this.fetchResourcesPaginated(userId, { page, pageSize });
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      // 1. Try PostgreSQL search RPC function if available
       try {
         const rpcParams: Record<string, any> = {
           search_query: cleanQ || null,
@@ -294,18 +432,35 @@ export const resourceService = {
             typeof criteria?.bookmarked === "boolean" ? criteria.bookmarked : null,
         };
 
-        let rpcBuilder = (supabase.rpc as any)("search_user_resources", rpcParams);
+        let rpcBuilder = (supabase.rpc as any)("search_user_resources", rpcParams, {
+          count: "exact",
+        });
 
         if (criteria?.signal && typeof (rpcBuilder as any).abortSignal === "function") {
           rpcBuilder = (rpcBuilder as any).abortSignal(criteria.signal);
         }
 
-        const { data: rpcRows, error: rpcError } = await rpcBuilder;
+        rpcBuilder = rpcBuilder.range(from, to);
+
+        const { data: rpcRows, error: rpcError, count } = await rpcBuilder;
 
         if (!rpcError && Array.isArray(rpcRows)) {
-          const resourceIds = rpcRows.map((r: any) => r.id);
-          if (resourceIds.length === 0) return [];
+          const totalCount = count ?? rpcRows.length;
+          const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
+          if (rpcRows.length === 0) {
+            return {
+              items: [],
+              totalCount: totalCount || 0,
+              page,
+              pageSize,
+              totalPages,
+              hasMore: false,
+            };
+          }
+
+          // Fetch junction tags and collections ONLY for the active page slice
+          const resourceIds = rpcRows.map((r: any) => r.id);
           let junctionQuery = supabase
             .from("resources")
             .select(`
@@ -337,44 +492,35 @@ export const resourceService = {
             return mapRowToFigmaResource(r, j?.tags || [], j?.colName);
           });
 
-          // In case the deployed RPC was Migration 007 without advanced filters,
-          // apply defensive client-side matcher pass if any advanced filter was requested
-          if (
-            criteria?.collection ||
-            combinedTags.length > 0 ||
-            typeof criteria?.favorite === "boolean" ||
-            typeof criteria?.pinned === "boolean" ||
-            typeof criteria?.bookmarked === "boolean" ||
-            resolvedFrom ||
-            resolvedTo
-          ) {
-            mapped = searchMatcherResources(mapped, cleanQ, {
-              platform: criteria?.platform,
-              status: criteria?.status,
-              category: criteria?.category,
-              collection: criteria?.collection,
-              tag: criteria?.tag,
-              tags: combinedTags,
-              favorite: criteria?.favorite,
-              pinned: criteria?.pinned,
-              bookmarked: criteria?.bookmarked,
-              dateFrom: resolvedFrom || undefined,
-              dateTo: resolvedTo || undefined,
-              sortOrder: criteria?.sortOrder,
-            });
-          } else if (criteria?.sortOrder) {
+          if (criteria?.sortOrder && criteria.sortOrder !== "relevance") {
             mapped = sortResources(mapped, criteria.sortOrder, cleanQ);
           }
 
-          return mapped;
+          return {
+            items: mapped,
+            totalCount,
+            page,
+            pageSize,
+            totalPages,
+            hasMore: page < totalPages,
+          };
         }
       } catch {
-        // Fallback to PostgREST query if RPC function is not installed or fails
+        // Fallback to PostgREST query if RPC is unavailable
       }
 
-      if (criteria?.signal?.aborted) return [];
+      if (criteria?.signal?.aborted) {
+        return {
+          items: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 1,
+          hasMore: false,
+        };
+      }
 
-      // 3. Fallback PostgREST query with RLS enforcement
+      // 2. Fallback PostgREST query with range pagination and RLS enforcement
       let queryBuilder = supabase
         .from("resources")
         .select(`
@@ -385,7 +531,7 @@ export const resourceService = {
           collection_resources (
             collections ( name )
           )
-        `)
+        `, { count: "exact" })
         .eq("user_id", userId);
 
       if (criteria?.signal && typeof (queryBuilder as any).abortSignal === "function") {
@@ -426,14 +572,29 @@ export const resourceService = {
         }
       }
 
-      const { data: rows, error } = await queryBuilder.order("created_at", {
-        ascending: false,
-      });
+      queryBuilder = queryBuilder
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+
+      const { data: rows, error, count } = await queryBuilder;
 
       if (error) {
-        if (criteria?.signal?.aborted) return [];
+        if (criteria?.signal?.aborted) {
+          return {
+            items: [],
+            totalCount: 0,
+            page,
+            pageSize,
+            totalPages: 1,
+            hasMore: false,
+          };
+        }
         throw error;
       }
+
+      const totalCount = count ?? (rows ? rows.length : 0);
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
       let results: FigmaResource[] = (rows || []).map((r: any) => {
         const tags = (r.resource_tags || [])
@@ -443,29 +604,41 @@ export const resourceService = {
         return mapRowToFigmaResource(r, tags, colName);
       });
 
-      // Apply client-side searchMatcherResources for high-precision multi-tag AND, collections, and relevance
-      results = searchMatcherResources(results, cleanQ, {
-        platform: criteria?.platform,
-        status: criteria?.status,
-        category: criteria?.category,
-        collection: criteria?.collection,
-        tag: criteria?.tag,
-        tags: combinedTags,
-        favorite: criteria?.favorite,
-        pinned: criteria?.pinned,
-        bookmarked: criteria?.bookmarked,
-        dateFrom: resolvedFrom || undefined,
-        dateTo: resolvedTo || undefined,
-        sortOrder: criteria?.sortOrder,
-      });
+      if (criteria?.sortOrder) {
+        results = sortResources(results, criteria.sortOrder, cleanQ);
+      }
 
-      return results;
+      return {
+        items: results,
+        totalCount,
+        page,
+        pageSize,
+        totalPages,
+        hasMore: page < totalPages,
+      };
+    })();
+
+    resourceCache.setInFlight(cacheKey, executionPromise);
+
+    try {
+      const result = await executionPromise;
+      if (!criteria?.signal?.aborted) {
+        resourceCache.set(cacheKey, result, userId);
+      }
+      return result;
     } catch (err: any) {
       if (criteria?.signal?.aborted || err?.name === "AbortError") {
-        return [];
+        return {
+          items: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 1,
+          hasMore: false,
+        };
       }
-      console.warn("searchResources error, falling back to local storage:", err);
-      return this.searchLocalCache(criteria);
+      console.warn("searchResourcesPaginated error, falling back to local storage:", err);
+      return this.searchLocalCachePaginated(criteria);
     }
   },
 
@@ -588,6 +761,9 @@ export const resourceService = {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([created, ...existing]));
     } catch {}
 
+    // Invalidate query cache on mutation
+    resourceCache.invalidateUser(userId);
+
     return created;
   },
 
@@ -675,6 +851,9 @@ export const resourceService = {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
       }
     } catch {}
+
+    // Invalidate query cache on mutation
+    resourceCache.invalidateUser(userId);
   },
 
   // Delete resource
@@ -713,6 +892,9 @@ export const resourceService = {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
       }
     } catch {}
+
+    // Invalidate query cache on mutation
+    resourceCache.invalidateUser(userId);
   },
 
   // Save full resource collection to local cache (for initial hydration)
@@ -720,5 +902,8 @@ export const resourceService = {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(resources));
     } catch {}
+
+    // Invalidate all query caches on batch local update
+    resourceCache.invalidateUser(null);
   },
 };
