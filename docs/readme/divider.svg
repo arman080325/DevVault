@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 34" width="1200" height="34" role="img" aria-label="divider">
+<defs><linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0"><stop offset="0" stop-color="#b6503a" stop-opacity="0"/><stop offset=".5" stop-color="#b6503a" stop-opacity=".55"/><stop offset="1" stop-color="#b6503a" stop-opacity="0"/></linearGradient>
+<radialGradient id="g"><stop offset="0" stop-color="#da755c" stop-opacity=".9"/><stop offset="1" stop-color="#da755c" stop-opacity="0"/></radialGradient></defs>
+<style>.spark{animation:run 5.5s cubic-bezier(.65,0,.35,1) infinite}
+@keyframes run{0%{transform:translateX(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateX(1080px);opacity:0}}
+.gem{transform-box:fill-box;transform-origin:center;animation:gem 5.5s ease-in-out infinite}
+@keyframes gem{0%,40%,60%,100%{transform:rotate(45deg) scale(1)}50%{transform:rotate(225deg) scale(1.5)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}</style>
+<line x1="0" y1="17" x2="1200" y2="17" stroke="url(#fade)" stroke-width="1.2"/>
+<rect x="595.0" y="12" width="10" height="10" fill="#b6503a" class="gem"/>
+<g class="spark"><circle cx="60" cy="17" r="14" fill="url(#g)"/><circle cx="60" cy="17" r="3" fill="#da755c"/></g>
+</svg>
