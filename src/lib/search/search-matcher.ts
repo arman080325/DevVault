@@ -7,10 +7,184 @@ export interface SearchMatchOptions {
   status?: string;
   /** Filter by category or "All" */
   category?: string;
-  /** Filter by specific collection name */
+  /** Filter by specific collection name or "All" */
   collection?: string;
-  /** Filter by specific tag name */
+  /** Filter by single tag name (backward compatibility) */
   tag?: string;
+  /** Filter by multiple tag names (AND semantics: resource must have all tags) */
+  tags?: string[];
+  /** Filter by favorite flag */
+  favorite?: boolean;
+  /** Filter by pinned flag */
+  pinned?: boolean;
+  /** Filter by bookmarked state (matches favorite OR pinned) */
+  bookmarked?: boolean;
+  /** Filter by lower timestamp boundary */
+  dateFrom?: string | Date;
+  /** Filter by upper timestamp boundary */
+  dateTo?: string | Date;
+  /** Predefined date ranges */
+  datePreset?: "all" | "today" | "7d" | "30d" | "year";
+}
+
+/**
+ * Resolves a date preset ("today", "7d", "30d", "year") into Date boundary objects.
+ */
+export function resolveDatePresetBoundaries(
+  preset?: "all" | "today" | "7d" | "30d" | "year"
+): { dateFrom?: Date; dateTo?: Date } {
+  if (!preset || preset === "all") return {};
+
+  const now = new Date();
+  if (preset === "today") {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return { dateFrom: startOfToday };
+  }
+  if (preset === "7d") {
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return { dateFrom: sevenDaysAgo };
+  }
+  if (preset === "30d") {
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return { dateFrom: thirtyDaysAgo };
+  }
+  if (preset === "year") {
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    return { dateFrom: startOfYear };
+  }
+  return {};
+}
+
+/**
+ * Extracts a numeric timestamp from a resource's createdAt or saved field.
+ */
+export function getResourceTimestamp(resource: FigmaResource): number | null {
+  if (resource.createdAt) {
+    const ts = new Date(resource.createdAt).getTime();
+    if (!isNaN(ts)) return ts;
+  }
+  if (!resource.saved) return null;
+  const s = resource.saved.toLowerCase().trim();
+  const now = Date.now();
+  if (s === "today") {
+    return now;
+  }
+  if (s === "yesterday") {
+    return now - 24 * 60 * 60 * 1000;
+  }
+  const parsed = Date.parse(resource.saved);
+  if (!isNaN(parsed)) return parsed;
+  return null;
+}
+
+/**
+ * Evaluates whether a resource satisfies the provided SearchMatchOptions.
+ */
+export function evaluateResourceOptions(
+  resource: FigmaResource,
+  options?: SearchMatchOptions
+): boolean {
+  if (!options) return true;
+
+  // 1. Platform / Source filter
+  if (
+    options.platform &&
+    options.platform !== "All" &&
+    resource.source.toLowerCase() !== options.platform.toLowerCase() &&
+    resource.kind.toLowerCase() !== options.platform.toLowerCase()
+  ) {
+    return false;
+  }
+
+  // 2. Status filter
+  if (
+    options.status &&
+    options.status !== "All" &&
+    resource.status.toLowerCase() !== options.status.toLowerCase()
+  ) {
+    return false;
+  }
+
+  // 3. Category filter
+  if (
+    options.category &&
+    options.category !== "All" &&
+    resource.category.toLowerCase() !== options.category.toLowerCase()
+  ) {
+    return false;
+  }
+
+  // 4. Collection filter
+  if (
+    options.collection &&
+    options.collection !== "All" &&
+    resource.collection?.toLowerCase() !== options.collection.toLowerCase()
+  ) {
+    return false;
+  }
+
+  // 5. Single-tag filter (backward compatibility)
+  if (
+    options.tag &&
+    options.tag !== "All" &&
+    !(resource.tags || []).some(
+      (t) => t.toLowerCase() === options.tag!.toLowerCase()
+    )
+  ) {
+    return false;
+  }
+
+  // 6. Multi-tag filter (AND semantics: resource must have all requested tags)
+  if (options.tags && options.tags.length > 0) {
+    const resTags = (resource.tags || []).map((t) => t.toLowerCase());
+    const hasAllTags = options.tags.every((req) =>
+      resTags.includes(req.toLowerCase().trim())
+    );
+    if (!hasAllTags) {
+      return false;
+    }
+  }
+
+  // 7. Favorite flag
+  if (options.favorite !== undefined && resource.favorite !== options.favorite) {
+    return false;
+  }
+
+  // 8. Pinned flag
+  if (options.pinned !== undefined && resource.pinned !== options.pinned) {
+    return false;
+  }
+
+  // 9. Bookmarked state (matches favorite OR pinned)
+  if (options.bookmarked !== undefined) {
+    const isBookmarked = Boolean(resource.pinned || resource.favorite);
+    if (isBookmarked !== options.bookmarked) {
+      return false;
+    }
+  }
+
+  // 10. Date boundaries & Presets
+  const presetBounds = resolveDatePresetBoundaries(options.datePreset);
+  const effectiveFrom = options.dateFrom
+    ? new Date(options.dateFrom)
+    : presetBounds.dateFrom;
+  const effectiveTo = options.dateTo
+    ? new Date(options.dateTo)
+    : presetBounds.dateTo;
+
+  if (effectiveFrom || effectiveTo) {
+    const resTimestamp = getResourceTimestamp(resource);
+    if (resTimestamp !== null) {
+      if (effectiveFrom && resTimestamp < effectiveFrom.getTime()) {
+        return false;
+      }
+      if (effectiveTo && resTimestamp > effectiveTo.getTime()) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -158,47 +332,8 @@ export function matchResource(
   options?: SearchMatchOptions
 ): boolean {
   // 1. Check options filters if provided
-  if (options) {
-    if (
-      options.platform &&
-      options.platform !== "All" &&
-      resource.source.toLowerCase() !== options.platform.toLowerCase() &&
-      resource.kind.toLowerCase() !== options.platform.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      options.status &&
-      options.status !== "All" &&
-      resource.status.toLowerCase() !== options.status.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      options.category &&
-      options.category !== "All" &&
-      resource.category.toLowerCase() !== options.category.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      options.collection &&
-      resource.collection?.toLowerCase() !== options.collection.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      options.tag &&
-      !(resource.tags || []).some(
-        (t) => t.toLowerCase() === options.tag!.toLowerCase()
-      )
-    ) {
-      return false;
-    }
+  if (options && !evaluateResourceOptions(resource, options)) {
+    return false;
   }
 
   // 2. Check query string
@@ -220,7 +355,15 @@ export function searchResources(
 ): FigmaResource[] {
   const tokens = tokenizeQuery(query);
 
-  if (tokens.length === 0 && (!options || Object.values(options).every((v) => !v || v === "All"))) {
+  const hasEmptyOptions =
+    !options ||
+    (Object.entries(options).every(([k, v]) => {
+      if (v === undefined || v === null || v === "All" || v === "all") return true;
+      if (Array.isArray(v) && v.length === 0) return true;
+      return false;
+    }));
+
+  if (tokens.length === 0 && hasEmptyOptions) {
     return resources;
   }
 
@@ -228,47 +371,8 @@ export function searchResources(
 
   for (const resource of resources) {
     // Check options first
-    if (options) {
-      if (
-        options.platform &&
-        options.platform !== "All" &&
-        resource.source.toLowerCase() !== options.platform.toLowerCase() &&
-        resource.kind.toLowerCase() !== options.platform.toLowerCase()
-      ) {
-        continue;
-      }
-
-      if (
-        options.status &&
-        options.status !== "All" &&
-        resource.status.toLowerCase() !== options.status.toLowerCase()
-      ) {
-        continue;
-      }
-
-      if (
-        options.category &&
-        options.category !== "All" &&
-        resource.category.toLowerCase() !== options.category.toLowerCase()
-      ) {
-        continue;
-      }
-
-      if (
-        options.collection &&
-        resource.collection?.toLowerCase() !== options.collection.toLowerCase()
-      ) {
-        continue;
-      }
-
-      if (
-        options.tag &&
-        !(resource.tags || []).some(
-          (t) => t.toLowerCase() === options.tag!.toLowerCase()
-        )
-      ) {
-        continue;
-      }
+    if (options && !evaluateResourceOptions(resource, options)) {
+      continue;
     }
 
     if (tokens.length === 0) {
@@ -281,6 +385,9 @@ export function searchResources(
       resultsWithScore.push({ resource, score });
     }
   }
+
+  // Sort by score descending
+  resultsWithScore.sort((a, b) => b.score - a.score);
 
   return resultsWithScore.map((item) => item.resource);
 }

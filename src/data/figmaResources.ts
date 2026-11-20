@@ -20,6 +20,7 @@ export interface FigmaResource {
   pinned?: boolean;
   favorite?: boolean;
   imageUrl?: string;
+  createdAt?: string;
 }
 
 export const INITIAL_FIGMA_RESOURCES: FigmaResource[] = [
