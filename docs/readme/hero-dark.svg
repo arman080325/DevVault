@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 580" width="1200" height="580" role="img" aria-label="DevVault — a personal developer knowledge vault. Discover, capture, organize, explore, grow.">
+<title>DevVault</title>
+<defs><filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/>
+<feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .055 0"/></filter>
+<radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#da755c" stop-opacity=".22"/><stop offset="1" stop-color="#da755c" stop-opacity="0"/></radialGradient>
+<clipPath id="frame"><rect width="1200" height="580" rx="22"/></clipPath>
+</defs>
+<style>
+.serif{font-family:'Newsreader','Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif} .sans{font-family:'Instrument Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif} .mono{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.ink{fill:#f1ece2} .muted{fill:#a9a095} .faint{fill:#797168} .acc{fill:#da755c}
+.rise{animation:rise 1s cubic-bezier(.16,1,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+.ring{transform-box:view-box;transform-origin:912px 282px}
+.slow{animation:spin 48s linear infinite} .fast{animation:spin 9s linear infinite reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.halo{transform-box:view-box;transform-origin:912px 282px;animation:halo 6s ease-in-out infinite}
+.halo2{animation-delay:-3s}
+@keyframes halo{0%,100%{opacity:.18;transform:scale(.96)}50%{opacity:.42;transform:scale(1.03)}}
+.keystone{transform-box:fill-box;transform-origin:center;animation:key 1.875s ease-in-out infinite}
+@keyframes key{0%,70%,100%{transform:scale(1)}82%{transform:scale(1.35)}}
+.chip{transform-box:view-box;opacity:0;animation-duration:7.5s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.55,.05,.4,1)}
+.verb{animation:verb 7.5s infinite;fill:#797168}
+@keyframes verb{0%{fill:#797168}3%,17%{fill:#da755c}22%,100%{fill:#797168}}
+.uline{transform-box:fill-box;transform-origin:left;transform:scaleX(0);animation:uline 7.5s infinite}
+@keyframes uline{0%{transform:scaleX(0);transform-origin:left}6%{transform:scaleX(1);transform-origin:left}17%{transform:scaleX(1);transform-origin:right}22%,100%{transform:scaleX(0);transform-origin:right}}
+.live{animation:live 1.6s ease-in-out infinite}
+@keyframes live{0%,100%{opacity:1}50%{opacity:.25}}
+.d1{animation-delay:.1s} .d2{animation-delay:.3s} .d3{animation-delay:.5s} .d4{animation-delay:.7s} .d5{animation-delay:.9s}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}@keyframes c0{0%{opacity:0;transform:translate(193px,-190px) scale(1)}
+8%{opacity:1;transform:translate(181px,-179px) scale(1)}
+30%{opacity:1;transform:translate(106px,-105px) scale(.92)}
+42%{opacity:0;transform:translate(0px,0px) scale(.15)}100%{opacity:0;transform:translate(0px,0px) scale(.15)}}
+.c0{animation-name:c0;animation-delay:0.0s;transform-origin:912px 282px}
+@keyframes c1{0%{opacity:0;transform:translate(206px,188px) scale(1)}
+8%{opacity:1;transform:translate(194px,177px) scale(1)}
+30%{opacity:1;transform:translate(113px,103px) scale(.92)}
+42%{opacity:0;transform:translate(0px,0px) scale(.15)}100%{opacity:0;transform:translate(0px,0px) scale(.15)}}
+.c1{animation-name:c1;animation-delay:1.875s;transform-origin:912px 282px}
+@keyframes c2{0%{opacity:0;transform:translate(-222px,188px) scale(1)}
+8%{opacity:1;transform:translate(-209px,177px) scale(1)}
+30%{opacity:1;transform:translate(-122px,103px) scale(.92)}
+42%{opacity:0;transform:translate(0px,0px) scale(.15)}100%{opacity:0;transform:translate(0px,0px) scale(.15)}}
+.c2{animation-name:c2;animation-delay:3.75s;transform-origin:912px 282px}
+@keyframes c3{0%{opacity:0;transform:translate(-212px,-186px) scale(1)}
+8%{opacity:1;transform:translate(-199px,-175px) scale(1)}
+30%{opacity:1;transform:translate(-117px,-102px) scale(.92)}
+42%{opacity:0;transform:translate(0px,0px) scale(.15)}100%{opacity:0;transform:translate(0px,0px) scale(.15)}}
+.c3{animation-name:c3;animation-delay:5.625s;transform-origin:912px 282px}</style>
+<g clip-path="url(#frame)">
+<rect width="1200" height="580" fill="#171512"/>
+<circle cx="912" cy="282" r="300" fill="url(#glow)"/>
+<!-- editorial art: offset circles like the in-app resource art -->
+<circle cx="1032" cy="132" r="250" fill="none" stroke="#da755c" stroke-width="1.4" class="halo"/>
+<circle cx="912" cy="282" r="205" fill="none" stroke="#da755c" stroke-width="1.2" class="halo halo2"/>
+<circle cx="912" cy="282" r="152" fill="none" stroke="#3c3730" stroke-width="2" stroke-dasharray="2 9" class="ring slow"/>
+<circle cx="912" cy="282" r="134" fill="none" stroke="#da755c" stroke-width="3" stroke-linecap="round" stroke-dasharray="70 772" class="ring fast"/>
+<g class="chip c0"><g transform="translate(912 282)"><rect x="-41.599999999999994" y="-15" width="83.19999999999999" height="30" rx="15" fill="#2a2621" stroke="#3c3730"/>
+<circle cx="-25.599999999999994" cy="0" r="4.5" fill="#A3B2A6"/>
+<text x="-14.599999999999994" y="4.5" class="mono" font-size="11.5" letter-spacing="1.2" fill="#f1ece2">GITHUB</text></g></g><g class="chip c1"><g transform="translate(912 282)"><rect x="-45.699999999999996" y="-15" width="91.39999999999999" height="30" rx="15" fill="#2a2621" stroke="#3c3730"/>
+<circle cx="-29.699999999999996" cy="0" r="4.5" fill="#C87D7D"/>
+<text x="-18.699999999999996" y="4.5" class="mono" font-size="11.5" letter-spacing="1.2" fill="#f1ece2">YOUTUBE</text></g></g><g class="chip c2"><g transform="translate(912 282)"><rect x="-53.9" y="-15" width="107.8" height="30" rx="15" fill="#2a2621" stroke="#3c3730"/>
+<circle cx="-37.9" cy="0" r="4.5" fill="#B388A4"/>
+<text x="-26.9" y="4.5" class="mono" font-size="11.5" letter-spacing="1.2" fill="#f1ece2">INSTAGRAM</text></g></g><g class="chip c3"><g transform="translate(912 282)"><rect x="-33.4" y="-15" width="66.8" height="30" rx="15" fill="#2a2621" stroke="#3c3730"/>
+<circle cx="-17.4" cy="0" r="4.5" fill="#92A89B"/>
+<text x="-6.399999999999999" y="4.5" class="mono" font-size="11.5" letter-spacing="1.2" fill="#f1ece2">DOCS</text></g></g>
+<g transform="translate(807.0 177.0) scale(0.41016)" class="">
+<rect width="512" height="512" rx="112" fill="#171512"/>
+<rect x="24" y="24" width="464" height="464" rx="88" stroke="#3c3730" stroke-width="4" fill="none"/>
+<path d="M148 64h216l96 96v192l-96 96H148l-96-96V160l96-96z" stroke="#f1ece2" stroke-width="24" stroke-linejoin="round" fill="#211e1a"/>
+<path d="M176 144v224h88a112 112 0 0 0 0-224H176z" stroke="#f1ece2" stroke-width="20" stroke-linejoin="round" fill="#f1ece2" fill-opacity=".08"/>
+<path d="M256 244L320 368L384 244" stroke="#b6503a" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" fill="none" class="bolt"/>
+<circle cx="256" cy="256" r="32" fill="#b6503a" class="keystone"/>
+<circle cx="256" cy="256" r="14" fill="#171512"/>
+</g>
+
+<line x1="60" y1="64" x2="1140" y2="64" stroke="#3c3730"/>
+<text x="60" y="46" class="mono faint rise" font-size="12" letter-spacing="2.6">N° 01 — A PERSONAL KNOWLEDGE VAULT FOR ENGINEERS</text>
+<circle cx="958" cy="42" r="4" fill="#da755c" class="live"/>
+<text x="1140" y="46" text-anchor="end" class="mono faint rise" font-size="12" letter-spacing="2.6">PHASE 02.4 · LIVE</text>
+
+<g class="rise d1"><text x="54" y="238" class="serif" font-size="132" letter-spacing="-4"><tspan class="ink">Dev</tspan><tspan class="acc" font-style="italic">Vault</tspan></text></g>
+<text x="60" y="298" class="serif ink rise d2" font-size="32" letter-spacing="-.5">Everything you find while learning,</text>
+<text x="60" y="340" class="serif acc rise d3" font-size="32" font-style="italic" letter-spacing="-.5">kept somewhere you’ll return to.</text>
+<g class="rise d4"><text x="60" y="420" class="mono verb" font-size="15" letter-spacing="3" style="animation-delay:0.0s">DISCOVER</text><rect x="60" y="430" width="93" height="2" fill="#da755c" class="uline" style="animation-delay:0.0s"/><text x="159" y="420" class="mono faint" font-size="13">/</text><text x="183" y="420" class="mono verb" font-size="15" letter-spacing="3" style="animation-delay:1.5s">CAPTURE</text><rect x="183" y="430" width="81" height="2" fill="#da755c" class="uline" style="animation-delay:1.5s"/><text x="270" y="420" class="mono faint" font-size="13">/</text><text x="294" y="420" class="mono verb" font-size="15" letter-spacing="3" style="animation-delay:3.0s">ORGANIZE</text><rect x="294" y="430" width="93" height="2" fill="#da755c" class="uline" style="animation-delay:3.0s"/><text x="393" y="420" class="mono faint" font-size="13">/</text><text x="417" y="420" class="mono verb" font-size="15" letter-spacing="3" style="animation-delay:4.5s">EXPLORE</text><rect x="417" y="430" width="81" height="2" fill="#da755c" class="uline" style="animation-delay:4.5s"/><text x="504" y="420" class="mono faint" font-size="13">/</text><text x="528" y="420" class="mono verb" font-size="15" letter-spacing="3" style="animation-delay:6.0s">GROW</text><rect x="528" y="430" width="45" height="2" fill="#da755c" class="uline" style="animation-delay:6.0s"/></g>
+<text x="60" y="478" class="sans muted rise d5" font-size="15">GitHub repos · YouTube deep-dives · Instagram carousels · docs &amp; articles</text>
+
+<line x1="60" y1="522" x2="1140" y2="522" stroke="#3c3730"/>
+<text x="60" y="552" class="mono faint" font-size="11.5" letter-spacing="2.2">NEXT.JS 15 · REACT 19 · TYPESCRIPT · SUPABASE + RLS · FRAMER MOTION</text>
+<rect x="985" y="536" width="44" height="24" rx="5" fill="#211e1a" stroke="#3c3730"/>
+<text x="1007" y="553" text-anchor="middle" class="mono ink" font-size="12">⌘ K</text>
+<text x="1140" y="552" text-anchor="end" class="mono faint" font-size="11.5" letter-spacing="2.2">SEARCH</text>
+<rect width="1200" height="580" filter="url(#grain)"/>
+</g>
+</svg>
