@@ -1,4 +1,4 @@
-import { ResourceKind } from "@/components/resources/resource-art";
+import type { ResourceKind } from "@/components/resources/resource-art";
 
 export interface FigmaResource {
   id: number;
@@ -21,6 +21,41 @@ export interface FigmaResource {
   favorite?: boolean;
   imageUrl?: string;
   createdAt?: string;
+  updatedAt?: string;
+}
+
+export type AdvancedSortOption =
+  | "recent"
+  | "oldest"
+  | "title-asc"
+  | "title-desc"
+  | "updated"
+  | "relevance";
+
+export type LegacySortOption = "title";
+
+export type SortOption = AdvancedSortOption | LegacySortOption;
+
+export interface SavedSearchItem {
+  id: string;
+  userId?: string;
+  name: string;
+  query?: string;
+  platform?: string;
+  category?: string;
+  status?: string;
+  collection?: string;
+  tags?: string[];
+  favorite?: boolean;
+  pinned?: boolean;
+  bookmarked?: boolean;
+  datePreset?: "all" | "today" | "7d" | "30d" | "year";
+  dateFrom?: string;
+  dateTo?: string;
+  sortOrder?: AdvancedSortOption;
+  createdAt: string;
+  updatedAt?: string;
+  lastUsedAt?: string;
 }
 
 export const INITIAL_FIGMA_RESOURCES: FigmaResource[] = [

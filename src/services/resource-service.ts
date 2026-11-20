@@ -1,9 +1,10 @@
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { type ResourceRow } from "@/lib/supabase/types";
-import { FigmaResource } from "@/data/figmaResources";
+import { FigmaResource, SortOption } from "@/data/figmaResources";
 import { ResourceKind } from "@/components/resources/resource-art";
 import {
   searchResources as searchMatcherResources,
+  sortResources,
   SearchMatchOptions,
   resolveDatePresetBoundaries,
 } from "@/lib/search/search-matcher";
@@ -22,6 +23,7 @@ export interface SearchResourceCriteria {
   dateFrom?: string | Date;
   dateTo?: string | Date;
   datePreset?: "all" | "today" | "7d" | "30d" | "year";
+  sortOrder?: SortOption;
   signal?: AbortSignal;
 }
 
@@ -84,6 +86,7 @@ export function mapRowToFigmaResource(
     favorite: row.is_favorite,
     imageUrl: row.thumbnail_url || undefined,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -193,6 +196,7 @@ export const resourceService = {
         dateFrom: criteria?.dateFrom,
         dateTo: criteria?.dateTo,
         datePreset: criteria?.datePreset,
+        sortOrder: criteria?.sortOrder,
       });
     } catch {
       return [];
@@ -356,7 +360,10 @@ export const resourceService = {
               bookmarked: criteria?.bookmarked,
               dateFrom: resolvedFrom || undefined,
               dateTo: resolvedTo || undefined,
+              sortOrder: criteria?.sortOrder,
             });
+          } else if (criteria?.sortOrder) {
+            mapped = sortResources(mapped, criteria.sortOrder, cleanQ);
           }
 
           return mapped;
@@ -449,6 +456,7 @@ export const resourceService = {
         bookmarked: criteria?.bookmarked,
         dateFrom: resolvedFrom || undefined,
         dateTo: resolvedTo || undefined,
+        sortOrder: criteria?.sortOrder,
       });
 
       return results;

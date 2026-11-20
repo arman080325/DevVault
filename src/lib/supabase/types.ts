@@ -312,6 +312,80 @@ export interface Database {
           }
         ];
       };
+      saved_searches: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          search_query: string | null;
+          platform: string | null;
+          category: string | null;
+          status: string | null;
+          collection: string | null;
+          tags: string[];
+          is_favorite: boolean | null;
+          is_pinned: boolean | null;
+          is_bookmarked: boolean | null;
+          date_preset: string | null;
+          date_from: string | null;
+          date_to: string | null;
+          sort_order: string;
+          created_at: string;
+          updated_at: string;
+          last_used_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          search_query?: string | null;
+          platform?: string | null;
+          category?: string | null;
+          status?: string | null;
+          collection?: string | null;
+          tags?: string[];
+          is_favorite?: boolean | null;
+          is_pinned?: boolean | null;
+          is_bookmarked?: boolean | null;
+          date_preset?: string | null;
+          date_from?: string | null;
+          date_to?: string | null;
+          sort_order?: string;
+          created_at?: string;
+          updated_at?: string;
+          last_used_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          search_query?: string | null;
+          platform?: string | null;
+          category?: string | null;
+          status?: string | null;
+          collection?: string | null;
+          tags?: string[];
+          is_favorite?: boolean | null;
+          is_pinned?: boolean | null;
+          is_bookmarked?: boolean | null;
+          date_preset?: string | null;
+          date_from?: string | null;
+          date_to?: string | null;
+          sort_order?: string;
+          created_at?: string;
+          updated_at?: string;
+          last_used_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "saved_searches_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -333,3 +407,6 @@ export type ResourceRow = Database["public"]["Tables"]["resources"]["Row"];
 export type CollectionRow = Database["public"]["Tables"]["collections"]["Row"];
 export type TagRow = Database["public"]["Tables"]["tags"]["Row"];
 export type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
+export type SavedSearchRow = Database["public"]["Tables"]["saved_searches"]["Row"];
+export type SavedSearchInsert = Database["public"]["Tables"]["saved_searches"]["Insert"];
+export type SavedSearchUpdate = Database["public"]["Tables"]["saved_searches"]["Update"];
