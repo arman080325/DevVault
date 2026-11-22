@@ -16,9 +16,11 @@ import { QuickCaptureModal } from "@/components/modals/quick-capture-modal";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { Icon } from "@/components/shared/icon";
 import { authService } from "@/services/auth-service";
+import { avatarService } from "@/services/avatar-service";
 import { resourceService } from "@/services/resource-service";
 import { collectionService } from "@/services/collection-service";
 import { migrationService } from "@/services/migration-service";
+import { executeThemeTransition } from "@/lib/theme-transition";
 import { type User, type Session } from "@supabase/supabase-js";
 import {
   INITIAL_FIGMA_RESOURCES,
@@ -27,13 +29,69 @@ import {
   CollectionItem,
 } from "@/data/figmaResources";
 
+function resolveProfileDisplayName(
+  remoteProfile: {
+    full_name?: string | null;
+    email?: string | null;
+    role_title?: string | null;
+    avatar_url?: string | null;
+    avatar_path?: string | null;
+  } | null,
+  user: { email?: string; user_metadata?: Record<string, any> } | null
+): UserProfile {
+  const meta = (user?.user_metadata || {}) as Record<string, any>;
+  const metaName = (meta.full_name || meta.name || meta.display_name || meta.first_name) as string | undefined;
+  const email = remoteProfile?.email || user?.email || "alex@devvault.app";
+  const emailHandle = email.split("@")[0]?.toLowerCase();
+
+  let nameCandidate = (remoteProfile?.full_name || metaName || "").trim();
+  // If remoteProfile.full_name was auto-filled with raw email handle, prefer metadata or saved local name if human
+  if (nameCandidate.toLowerCase() === emailHandle && metaName && metaName.toLowerCase() !== emailHandle) {
+    nameCandidate = metaName.trim();
+  }
+  const savedName = typeof window !== "undefined" ? localStorage.getItem("devvault-user-name") : null;
+  if (
+    (!nameCandidate || nameCandidate.toLowerCase() === emailHandle) &&
+    savedName &&
+    !savedName.includes("@") &&
+    !/\d/.test(savedName)
+  ) {
+    nameCandidate = savedName.trim();
+  }
+
+  const avatarPath =
+    remoteProfile?.avatar_path ||
+    meta.avatar_path ||
+    (typeof window !== "undefined" ? localStorage.getItem("devvault-user-avatar-path") : null) ||
+    null;
+
+  let avatarUrl =
+    remoteProfile?.avatar_url ||
+    meta.avatar_url ||
+    (typeof window !== "undefined" ? localStorage.getItem("devvault-user-avatar-url") : null) ||
+    null;
+
+  if (!avatarUrl && avatarPath) {
+    avatarUrl = avatarService.getPublicAvatarUrl(avatarPath);
+  }
+
+  return {
+    name: nameCandidate || remoteProfile?.full_name || "Alex Lin",
+    email,
+    role: remoteProfile?.role_title || "Personal vault",
+    avatar_url: avatarUrl,
+    avatar_path: avatarPath,
+  };
+}
+
 function DashboardContent() {
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab") as NavPage | null;
+  const urlTheme = searchParams.get("theme") as "light" | "dark" | null;
   const isModalParam = searchParams.get("modal") === "capture";
 
   const [page, setPage] = React.useState<NavPage>(urlTab || "home");
-  const [theme, setTheme] = React.useState<"light" | "dark">("light");
+  const [theme, setTheme] = React.useState<"light" | "dark">(urlTheme || "light");
   const [resources, setResources] = React.useState<FigmaResource[]>(INITIAL_FIGMA_RESOURCES);
   const [collections, setCollections] = React.useState<CollectionItem[]>(INITIAL_COLLECTIONS);
   const [selectedResource, setSelectedResource] = React.useState<FigmaResource | null>(null);
@@ -48,10 +106,14 @@ function DashboardContent() {
   const [isAuthModalOpen, setIsAuthModalOpen] = React.useState(false);
   const [authModalMode, setAuthModalMode] = React.useState<"sign-in" | "sign-up">("sign-in");
 
-  // Migration State (Phase 02)
+  // Migration & Sync State (Phase 02 & Polish)
   const [migrationAvailable, setMigrationAvailable] = React.useState(false);
   const [isMigrating, setIsMigrating] = React.useState(false);
   const [migrationProgress, setMigrationProgress] = React.useState({ current: 0, total: 0 });
+  const [isOnline, setIsOnline] = React.useState<boolean>(true);
+  const [syncError, setSyncError] = React.useState<boolean>(false);
+  const [isSyncBannerDismissed, setIsSyncBannerDismissed] = React.useState<boolean>(false);
+  const [isLocalBannerDismissed, setIsLocalBannerDismissed] = React.useState<boolean>(false);
 
   // User Profile State
   const [userProfile, setUserProfile] = React.useState<UserProfile>({
@@ -64,17 +126,40 @@ function DashboardContent() {
   React.useEffect(() => {
     try {
       const savedTheme = localStorage.getItem("devvault-theme") as "light" | "dark" | null;
-      if (savedTheme) {
-        setTheme(savedTheme);
+      const activeTheme = urlTheme || savedTheme;
+      if (activeTheme) {
+        setTheme(activeTheme);
+        if (activeTheme === "dark") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.classList.remove("light");
+        } else {
+          document.documentElement.classList.remove("dark");
+          document.documentElement.classList.add("light");
+        }
       }
+
+      // Initialize font typography preference and display density
+      const savedFont = localStorage.getItem("devvault-font-preference") || "newsreader";
+      document.documentElement.setAttribute("data-font-pref", savedFont);
+      const savedDensity = localStorage.getItem("devvault-density");
+      if (savedDensity === "compact") {
+        document.documentElement.classList.add("compact-density");
+      } else {
+        document.documentElement.classList.remove("compact-density");
+      }
+
       const savedName = localStorage.getItem("devvault-user-name");
       const savedEmail = localStorage.getItem("devvault-user-email");
       const savedRole = localStorage.getItem("devvault-user-role");
-      if (savedName || savedEmail || savedRole) {
+      const savedAvatarUrl = localStorage.getItem("devvault-user-avatar-url");
+      const savedAvatarPath = localStorage.getItem("devvault-user-avatar-path");
+      if (savedName || savedEmail || savedRole || savedAvatarUrl) {
         setUserProfile({
           name: savedName || "Alex Lin",
           email: savedEmail || "alex@devvault.app",
           role: savedRole || "Personal vault",
+          avatar_url: savedAvatarUrl || null,
+          avatar_path: savedAvatarPath || null,
         });
       }
 
@@ -86,7 +171,7 @@ function DashboardContent() {
           if (Array.isArray(parsed) && parsed.length > 0) {
             setResources(parsed);
           }
-        } catch {}
+        } catch { }
       } else {
         // Save initial fixtures to local storage
         resourceService.saveLocalCache(INITIAL_FIGMA_RESOURCES);
@@ -100,11 +185,11 @@ function DashboardContent() {
           if (Array.isArray(parsedCols) && parsedCols.length > 0) {
             setCollections(parsedCols);
           }
-        } catch {}
+        } catch { }
       } else {
         collectionService.saveLocalCollections(INITIAL_COLLECTIONS);
       }
-    } catch {}
+    } catch { }
 
     // Check Auth Session & listen to changes
     const loadSessionAndData = async () => {
@@ -116,13 +201,7 @@ function DashboardContent() {
         if (session?.user) {
           // Fetch remote profile
           const remoteProfile = await authService.getProfile(session.user.id);
-          if (remoteProfile) {
-            setUserProfile({
-              name: remoteProfile.full_name || "Alex Lin",
-              email: remoteProfile.email || session.user.email || "alex@devvault.app",
-              role: remoteProfile.role_title || "Personal vault",
-            });
-          }
+          setUserProfile(resolveProfileDisplayName(remoteProfile, session.user));
 
           // Fetch cloud resources
           const cloudResources = await resourceService.fetchResources(session.user.id);
@@ -159,13 +238,7 @@ function DashboardContent() {
 
       if (user) {
         const remoteProfile = await authService.getProfile(user.id);
-        if (remoteProfile) {
-          setUserProfile({
-            name: remoteProfile.full_name || "Alex Lin",
-            email: remoteProfile.email || user.email || "alex@devvault.app",
-            role: remoteProfile.role_title || "Personal vault",
-          });
-        }
+        setUserProfile(resolveProfileDisplayName(remoteProfile, user));
         const cloudResources = await resourceService.fetchResources(user.id);
         setResources(cloudResources);
         const cloudCols = await collectionService.fetchCollections(user.id);
@@ -207,12 +280,45 @@ function DashboardContent() {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [urlTheme]);
 
   const showToast = React.useCallback((message: string) => {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 3000);
   }, []);
+
+  // Network & Session Banner State (Polish Sprint)
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsOnline(navigator.onLine);
+    try {
+      setIsSyncBannerDismissed(sessionStorage.getItem("devvault-dismiss-sync-banner") === "true");
+      setIsLocalBannerDismissed(sessionStorage.getItem("devvault-dismiss-local-banner") === "true");
+    } catch { }
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setSyncError(false);
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  const syncStatus: "synced" | "local" | "syncing" | "error" | "offline" = React.useMemo(() => {
+    if (!isOnline) return "offline";
+    if (isMigrating) return "syncing";
+    if (syncError) return "error";
+    if (authUser) {
+      return migrationAvailable ? "local" : "synced";
+    }
+    return "local";
+  }, [isOnline, isMigrating, syncError, authUser, migrationAvailable]);
 
   const handleOpenAuth = React.useCallback((mode: "sign-in" | "sign-up" = "sign-in") => {
     setAuthModalMode(mode);
@@ -269,6 +375,7 @@ function DashboardContent() {
   const handleRunMigration = React.useCallback(async () => {
     if (!authUser) return;
     setIsMigrating(true);
+    setSyncError(false);
     try {
       const detection = migrationService.detectLocalData();
       const res = await migrationService.migrateLocalToCloud(
@@ -289,31 +396,48 @@ function DashboardContent() {
       }
 
       setMigrationAvailable(false);
+      setSyncError(false);
       showToast(`Migrated ${res.migratedCount} resources to cloud vault`);
     } catch (err) {
       console.warn("Migration failed:", err);
+      setSyncError(true);
       showToast("Migration failed. Please check network.");
     } finally {
       setIsMigrating(false);
     }
   }, [authUser, resources, collections, showToast]);
 
-  const handleToggleTheme = React.useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === "light" ? "dark" : "light";
-      try {
-        localStorage.setItem("devvault-theme", next);
-        if (next === "dark") {
-          document.documentElement.classList.add("dark");
-          document.documentElement.classList.remove("light");
-        } else {
-          document.documentElement.classList.remove("dark");
-          document.documentElement.classList.add("light");
-        }
-      } catch {}
-      return next;
-    });
-  }, []);
+  const isThemeTransitioningRef = React.useRef(false);
+
+  const handleToggleTheme = React.useCallback(
+    (event?: React.MouseEvent<HTMLElement> | MouseEvent) => {
+      if (isThemeTransitioningRef.current) return;
+      isThemeTransitioningRef.current = true;
+
+      const next = theme === "light" ? "dark" : "light";
+      executeThemeTransition({
+        nextTheme: next,
+        event,
+        applyTheme: () => {
+          setTheme(next);
+          try {
+            localStorage.setItem("devvault-theme", next);
+            if (next === "dark") {
+              document.documentElement.classList.add("dark");
+              document.documentElement.classList.remove("light");
+            } else {
+              document.documentElement.classList.remove("dark");
+              document.documentElement.classList.add("light");
+            }
+          } catch {}
+        },
+        onEnd: () => {
+          isThemeTransitioningRef.current = false;
+        },
+      });
+    },
+    [theme]
+  );
 
   const handleUpdateProfile = React.useCallback(async (updated: UserProfile) => {
     setUserProfile(updated);
@@ -321,7 +445,17 @@ function DashboardContent() {
       localStorage.setItem("devvault-user-name", updated.name);
       localStorage.setItem("devvault-user-email", updated.email);
       localStorage.setItem("devvault-user-role", updated.role);
-    } catch {}
+      if (updated.avatar_url) {
+        localStorage.setItem("devvault-user-avatar-url", updated.avatar_url);
+      } else {
+        localStorage.removeItem("devvault-user-avatar-url");
+      }
+      if (updated.avatar_path) {
+        localStorage.setItem("devvault-user-avatar-path", updated.avatar_path);
+      } else {
+        localStorage.removeItem("devvault-user-avatar-path");
+      }
+    } catch { }
 
     // Persist to Supabase if authenticated
     if (authUser) {
@@ -329,6 +463,8 @@ function DashboardContent() {
         await authService.updateProfile(authUser.id, {
           full_name: updated.name,
           role_title: updated.role,
+          avatar_url: updated.avatar_url ?? null,
+          avatar_path: updated.avatar_path ?? null,
         });
       } catch (err) {
         console.warn("Error persisting profile update to Supabase:", err);
@@ -680,93 +816,18 @@ function DashboardContent() {
       isAuthenticated={Boolean(authUser)}
       onOpenAuth={handleOpenAuth}
       onSignOut={handleSignOut}
+      syncStatus={syncStatus}
     >
       {page === "home" && (
-        <>
-          {/* Local Mode Invitation Banner when Unauthenticated */}
-          {!authUser && (
-            <div className="vault-migration-banner">
-              <div className="vault-migration-icon">
-                <Icon name="log-in" size={18} />
-              </div>
-              <div className="vault-migration-body">
-                <b>Local Vault Active</b>
-                <p>
-                  Your resources are currently saved in this browser. Sign in or create an account to activate persistent cloud sync.
-                </p>
-              </div>
-              <div className="vault-migration-actions">
-                <button
-                  type="button"
-                  className="primary-button"
-                  onClick={() => handleOpenAuth("sign-in")}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  className="outline-button"
-                  onClick={() => handleOpenAuth("sign-up")}
-                >
-                  Create Account
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Cloud Migration Banner when Authenticated with local unsynced data */}
-          {authUser && migrationAvailable && (
-            <div className="vault-migration-banner">
-              <div className="vault-migration-icon">
-                <Icon name="upload" size={18} />
-              </div>
-              <div className="vault-migration-body">
-                <b>Local resources ready to sync</b>
-                <p>
-                  Found unsynced items in your browser storage. Import them into your PostgreSQL vault.
-                </p>
-                {isMigrating && (
-                  <div className="vault-migration-bar">
-                    <div
-                      style={{
-                        width: `${(migrationProgress.current / Math.max(migrationProgress.total, 1)) * 100}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="vault-migration-actions">
-                <button
-                  type="button"
-                  className="primary-button"
-                  disabled={isMigrating}
-                  onClick={handleRunMigration}
-                >
-                  {isMigrating
-                    ? `Syncing (${migrationProgress.current}/${migrationProgress.total})...`
-                    : "Sync to Cloud"}
-                </button>
-                <button
-                  type="button"
-                  className="outline-button"
-                  disabled={isMigrating}
-                  onClick={() => setMigrationAvailable(false)}
-                >
-                  Later
-                </button>
-              </div>
-            </div>
-          )}
-          <HomeView
-            resources={resources}
-            collections={collections}
+        <HomeView
+          resources={resources}
+          collections={collections}
             onCapture={() => setIsCaptureOpen(true)}
             onOpenResource={setSelectedResource}
             onNavigate={handleNavigate}
             onToggleBookmark={handleToggleBookmark}
             userProfile={userProfile}
           />
-        </>
       )}
 
       {page === "library" && (
@@ -824,6 +885,7 @@ function DashboardContent() {
           exploredCount={exploredCount}
           vaultSizeKb={vaultSizeKb}
           isAuthenticated={Boolean(authUser)}
+          authUserId={authUser?.id || null}
           authEmail={authUser?.email || null}
           onOpenAuth={handleOpenAuth}
           onSignOut={handleSignOut}
@@ -870,6 +932,123 @@ function DashboardContent() {
           collections={collections}
           session={authSession}
         />
+      )}
+
+      {/* Cloud Migration Toast (Modern UI/UX Toast for Phone and Desktop) */}
+      {authUser && migrationAvailable && !isSyncBannerDismissed && (
+        <div className="vault-sync-toast" role="status" aria-live="polite">
+          <div className="vault-sync-toast-content">
+            <div className="vault-sync-toast-icon">
+              <Icon name="upload" size={17} />
+            </div>
+            <div className="vault-sync-toast-body">
+              <div className="vault-sync-toast-header">
+                <span className="vault-sync-toast-title">Local resources waiting to sync</span>
+                <button
+                  type="button"
+                  className="vault-sync-toast-close"
+                  onClick={() => {
+                    setIsSyncBannerDismissed(true);
+                    try {
+                      sessionStorage.setItem("devvault-dismiss-sync-banner", "true");
+                    } catch { }
+                  }}
+                  aria-label="Dismiss toast"
+                  title="Dismiss"
+                >
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+              <p className="vault-sync-toast-text">
+                You have resources saved in this browser that aren&apos;t in your cloud vault yet.
+              </p>
+              {isMigrating && (
+                <div className="vault-sync-toast-progress">
+                  <div
+                    className="vault-sync-toast-progress-bar"
+                    style={{
+                      width: `${(migrationProgress.current / Math.max(migrationProgress.total, 1)) * 100}%`,
+                    }}
+                  />
+                </div>
+              )}
+              <div className="vault-sync-toast-actions">
+                <button
+                  type="button"
+                  className="vault-sync-btn-primary"
+                  disabled={isMigrating}
+                  onClick={handleRunMigration}
+                >
+                  {isMigrating
+                    ? `Syncing (${migrationProgress.current}/${migrationProgress.total})...`
+                    : "Sync now"}
+                </button>
+                <button
+                  type="button"
+                  className="vault-sync-btn-secondary"
+                  disabled={isMigrating}
+                  onClick={() => {
+                    setIsSyncBannerDismissed(true);
+                    try {
+                      sessionStorage.setItem("devvault-dismiss-sync-banner", "true");
+                    } catch { }
+                  }}
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Local Mode Invitation Toast */}
+      {!authUser && !isLocalBannerDismissed && (
+        <div className="vault-sync-toast local-mode-toast" role="status" aria-live="polite">
+          <div className="vault-sync-toast-content">
+            <div className="vault-sync-toast-icon">
+              <Icon name="log-in" size={17} />
+            </div>
+            <div className="vault-sync-toast-body">
+              <div className="vault-sync-toast-header">
+                <span className="vault-sync-toast-title">Local Vault Active</span>
+                <button
+                  type="button"
+                  className="vault-sync-toast-close"
+                  onClick={() => {
+                    setIsLocalBannerDismissed(true);
+                    try {
+                      sessionStorage.setItem("devvault-dismiss-local-banner", "true");
+                    } catch { }
+                  }}
+                  aria-label="Dismiss notice"
+                  title="Dismiss"
+                >
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+              <p className="vault-sync-toast-text">
+                Your resources are saved in this browser. Sign in or create an account for persistent cloud sync.
+              </p>
+              <div className="vault-sync-toast-actions">
+                <button
+                  type="button"
+                  className="vault-sync-btn-primary"
+                  onClick={() => handleOpenAuth("sign-in")}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  className="vault-sync-btn-secondary"
+                  onClick={() => handleOpenAuth("sign-up")}
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Save Resource Toast */}
