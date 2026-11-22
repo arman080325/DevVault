@@ -13,7 +13,7 @@ interface TopNavProps {
   onTheme: (event?: React.MouseEvent<HTMLElement>) => void;
   onSearch: () => void;
   onSettings: () => void;
-  onActivity: () => void;
+  onActivity?: () => void;
   userProfile?: UserProfile;
   isAuthenticated?: boolean;
   onOpenAuth?: (mode?: "sign-in" | "sign-up") => void;
@@ -91,17 +91,6 @@ export function TopNav({
           <span className="theme-toggle-icon-wrap" aria-hidden="true">
             <Icon name={theme === "light" ? "moon" : "sun"} />
           </span>
-        </button>
-
-        {/* Activity & Insights button: Desktop only (Available via drawer on mobile) */}
-        <button
-          type="button"
-          className="top-icon-btn hidden md:grid"
-          aria-label="Open activity"
-          onClick={onActivity}
-          title="Activity & Insights"
-        >
-          <Icon name="more" />
         </button>
 
         <button

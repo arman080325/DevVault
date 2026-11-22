@@ -6593,11 +6593,6 @@ html.dark .vault-sync-toast-icon.danger {
     flex-shrink: 0;
   }
 
-  .top-actions>button.top-icon-btn[aria-label="Open activity"],
-  .top-actions>button[aria-label="Open activity"] {
-    display: none !important;
-  }
-
   .top-actions>button.top-signin-btn,
   .top-signin-btn {
     display: none !important;
