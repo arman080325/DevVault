@@ -1,10 +1,66 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Icon } from "@/components/shared/icon";
 import { ResourceArt } from "@/components/resources/resource-art";
 import { FigmaResource, CollectionItem } from "@/data/figmaResources";
 import { type NavPage, type UserProfile } from "@/components/layout/sidebar";
+
+function getGreetingByHour(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 21) return "Good evening";
+  return "Good night";
+}
+
+function getFormattedDate(date: Date): string {
+  try {
+    return date
+      .toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      })
+      .toUpperCase();
+  } catch {
+    return "YOUR PERSONAL VAULT";
+  }
+}
+
+/**
+ * Resolves a clean human display name or first name from user profile data.
+ * Filters out raw emails (e.g. user@domain.com) and raw account handles/usernames
+ * (e.g. armankhan082020, user_1234).
+ * Returns null if no valid display name is available, enabling fallback to a clean neutral greeting.
+ */
+function resolveDisplayName(name?: string, email?: string): string | null {
+  if (!name) return null;
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+
+  // 1. If name is an email address, discard
+  if (trimmed.includes("@")) return null;
+
+  // 2. If name contains digits (e.g. armankhan082020) or underscores/slug chars, it's a raw username
+  if (/\d/.test(trimmed) || trimmed.includes("_") || trimmed.includes("-")) {
+    return null;
+  }
+
+  // 3. If email is provided and the email handle is a raw slug/handle and name matches it
+  if (email) {
+    const handle = email.split("@")[0]?.toLowerCase();
+    if (handle && (/\d/.test(handle) || handle.includes("_")) && trimmed.toLowerCase() === handle) {
+      return null;
+    }
+  }
+
+  // 4. Extract first name
+  const first = trimmed.split(/\s+/)[0];
+  if (!first) return null;
+
+  // 5. Capitalize first letter properly
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
 
 interface HomeViewProps {
   resources: FigmaResource[];
@@ -25,9 +81,20 @@ export function HomeView({
   onToggleBookmark,
   userProfile,
 }: HomeViewProps) {
-  const firstName = userProfile?.name?.trim()?.split(" ")[0] || "Alex";
+  const displayName = resolveDisplayName(userProfile?.name, userProfile?.email);
   const continueResource = resources.find((r) => r.status === "Exploring") || resources[0];
   const recentResources = resources.filter((r) => r.id !== continueResource?.id).slice(0, 4);
+
+  // Hydration-safe greeting and date resolution (Issue 05)
+  // Stable server fallback prevents hydration mismatches; resolved to browser-local on client mount
+  const [greeting, setGreeting] = useState<string>("Good morning");
+  const [dateLabel, setDateLabel] = useState<string>("TODAY");
+
+  useEffect(() => {
+    const now = new Date();
+    setGreeting(getGreetingByHour(now.getHours()));
+    setDateLabel(getFormattedDate(now));
+  }, []);
 
   const getSourceShort = (kind: FigmaResource["kind"]) => {
     switch (kind) {
@@ -50,9 +117,9 @@ export function HomeView({
   return (
     <div className="page home-page">
       <section className="home-intro">
-        <span className="date-label">THURSDAY, MAY 22</span>
+        <span className="date-label">{dateLabel}</span>
         <h1>
-          Good morning, {firstName}.
+          {displayName ? `${greeting}, ${displayName}.` : `${greeting}.`}
           <br />
           <em>What have you found?</em>
         </h1>

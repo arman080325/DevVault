@@ -1,8 +1,12 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { Icon, IconName } from "@/components/shared/icon";
+import { IconCamera } from "@tabler/icons-react";
 import { type UserProfile } from "@/components/layout/sidebar";
+import { avatarService } from "@/services/avatar-service";
+import { AvatarCropModal } from "@/components/modals/avatar-crop-modal";
 
 export type SettingsTab =
   | "profile"
@@ -14,7 +18,7 @@ export type SettingsTab =
 
 interface SettingsViewProps {
   theme: "light" | "dark";
-  onTheme: () => void;
+  onTheme: (event?: React.MouseEvent<HTMLElement>) => void;
   onExportData?: () => void;
   onImportData?: (file: File) => void;
   onClearData?: () => void;
@@ -26,6 +30,7 @@ interface SettingsViewProps {
   exploredCount?: number;
   vaultSizeKb?: number;
   isAuthenticated?: boolean;
+  authUserId?: string | null;
   authEmail?: string | null;
   onOpenAuth?: (mode?: "sign-in" | "sign-up") => void;
   onSignOut?: () => void;
@@ -62,6 +67,7 @@ export function SettingsView({
   exploredCount = 3,
   vaultSizeKb = 24,
   isAuthenticated = false,
+  authUserId,
   authEmail,
   onOpenAuth,
   onSignOut,
@@ -77,6 +83,17 @@ export function SettingsView({
   const [name, setName] = useState(userProfile?.name || "Alex Lin");
   const [email, setEmail] = useState(userProfile?.email || "alex@devvault.app");
   const [role, setRole] = useState(userProfile?.role || "Personal vault");
+
+  // Avatar Upload & Crop State
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
 
   // Appearance State
   const [fontPref, setFontPref] = useState<"newsreader" | "instrument" | "plex">("newsreader");
@@ -103,6 +120,112 @@ export function SettingsView({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Avatar Handlers
+  const handleSelectAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAvatarError(null);
+    setAvatarSuccess(null);
+
+    const validation = await avatarService.validateAvatarFile(file);
+    if (!validation.valid || !validation.image) {
+      setAvatarError(validation.error || "Invalid image file selected.");
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+      return;
+    }
+
+    setSelectedImage(validation.image);
+    setSelectedFile(file);
+    setIsCropModalOpen(true);
+  };
+
+  const handleSaveCroppedAvatar = async (croppedBlob: Blob) => {
+    setIsUploadingAvatar(true);
+    setAvatarError(null);
+    setAvatarSuccess(null);
+
+    try {
+      if (isAuthenticated && authUserId) {
+        // Authenticated flow: upload to Supabase Storage avatars bucket
+        const result = await avatarService.saveProfileAvatar(
+          authUserId,
+          croppedBlob,
+          userProfile?.avatar_path
+        );
+
+        onUpdateProfile?.({
+          ...(userProfile || { name, email, role }),
+          avatar_url: result.avatar_url,
+          avatar_path: result.avatar_path,
+        });
+      } else {
+        // Local flow: convert cropped blob to persistent base64 data URL
+        const reader = new FileReader();
+        await new Promise<void>((resolve, reject) => {
+          reader.onloadend = () => {
+            const dataUrl = reader.result as string;
+            onUpdateProfile?.({
+              ...(userProfile || { name, email, role }),
+              avatar_url: dataUrl,
+              avatar_path: null,
+            });
+            resolve();
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(croppedBlob);
+        });
+      }
+
+      setAvatarSuccess("Profile picture updated successfully.");
+      onToast?.("Profile photo updated");
+      setIsCropModalOpen(false);
+      setSelectedImage(null);
+      setSelectedFile(null);
+    } catch (err: any) {
+      setAvatarError(err.message || "Failed to upload profile photo.");
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setIsRemovingAvatar(true);
+    setAvatarError(null);
+    setAvatarSuccess(null);
+
+    try {
+      if (isAuthenticated && authUserId) {
+        await avatarService.removeProfileAvatar(authUserId, userProfile?.avatar_path);
+      }
+
+      onUpdateProfile?.({
+        ...(userProfile || { name, email, role }),
+        avatar_url: null,
+        avatar_path: null,
+      });
+
+      setAvatarSuccess("Profile photo removed.");
+      onToast?.("Profile photo removed");
+      setShowRemoveConfirm(false);
+    } catch (err: any) {
+      setAvatarError(err.message || "Failed to remove profile photo.");
+    } finally {
+      setIsRemovingAvatar(false);
+    }
+  };
+
+  // Auto-dismiss avatar success feedback after 4 seconds
+  useEffect(() => {
+    if (avatarSuccess) {
+      const timer = setTimeout(() => {
+        setAvatarSuccess(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [avatarSuccess]);
+
   // Sync with prop updates
   useEffect(() => {
     if (userProfile) {
@@ -115,11 +238,17 @@ export function SettingsView({
   // Load saved preferences on mount
   useEffect(() => {
     try {
-      const savedFont = localStorage.getItem("devvault-font-preference") as any;
-      if (savedFont) setFontPref(savedFont);
+      const savedFont = (localStorage.getItem("devvault-font-preference") as any) || "newsreader";
+      setFontPref(savedFont);
+      document.documentElement.setAttribute("data-font-pref", savedFont);
 
-      const savedDensity = localStorage.getItem("devvault-density") as any;
-      if (savedDensity) setDensity(savedDensity);
+      const savedDensity = (localStorage.getItem("devvault-density") as any) || "comfortable";
+      setDensity(savedDensity);
+      if (savedDensity === "compact") {
+        document.documentElement.classList.add("compact-density");
+      } else {
+        document.documentElement.classList.remove("compact-density");
+      }
 
       const savedAutoMeta = localStorage.getItem("devvault-auto-metadata");
       if (savedAutoMeta !== null) setAutoMetadata(savedAutoMeta === "true");
@@ -155,6 +284,8 @@ export function SettingsView({
       name: name.trim() || "Alex Lin",
       email: email.trim() || "alex@devvault.app",
       role: role.trim() || "Personal vault",
+      avatar_url: userProfile?.avatar_url ?? null,
+      avatar_path: userProfile?.avatar_path ?? null,
     };
     onUpdateProfile?.(updated);
     setIsEditingProfile(false);
@@ -175,7 +306,12 @@ export function SettingsView({
       localStorage.setItem("devvault-font-preference", font);
       document.documentElement.setAttribute("data-font-pref", font);
     } catch {}
-    onToast?.(`Typography updated to ${font === "newsreader" ? "Editorial Serif" : font === "instrument" ? "Modern Sans" : "Technical Mono"}`);
+    const fontNames = {
+      newsreader: "Editorial Serif (Newsreader)",
+      instrument: "Modern Sans (Instrument)",
+      plex: "Technical Mono (IBM Plex)",
+    };
+    onToast?.(`Headings typography updated to ${fontNames[font]}`);
   };
 
   // Density Selection
@@ -294,40 +430,177 @@ export function SettingsView({
                 <p>Manage your developer persona, name, and archive attribution.</p>
               </div>
 
+              {/* Unified Profile & Identity Section */}
               {!isEditingProfile ? (
-                <div className="profile-card-view">
-                  <div className="profile-card-avatar">
-                    <span>{initials}</span>
-                  </div>
-                  <div className="profile-card-info">
-                    <div className="profile-card-header">
-                      <h3>{name}</h3>
-                      <span className="profile-role-badge">{role}</span>
+                <div className="profile-unified-card">
+                  <input
+                    ref={avatarFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleSelectAvatarFile}
+                  />
+
+                  {/* Left section — Profile Avatar */}
+                  <div className="profile-unified-avatar-col">
+                    <div
+                      className="profile-unified-avatar-wrapper"
+                      onClick={() => !isUploadingAvatar && !isRemovingAvatar && avatarFileInputRef.current?.click()}
+                      title={userProfile?.avatar_url ? "Click to change photo" : "Click to upload photo"}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          avatarFileInputRef.current?.click();
+                        }
+                      }}
+                      aria-label="Upload or change profile photo"
+                    >
+                      {userProfile?.avatar_url ? (
+                        <img
+                          src={userProfile.avatar_url}
+                          alt={name}
+                          className="profile-unified-avatar-img"
+                        />
+                      ) : (
+                        <span className="profile-unified-avatar-initials">{initials}</span>
+                      )}
+
+                      {/* Terracotta Camera / Edit Overlay Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          avatarFileInputRef.current?.click();
+                        }}
+                        disabled={isUploadingAvatar || isRemovingAvatar}
+                        className="profile-avatar-camera-btn"
+                        title={userProfile?.avatar_url ? "Change photo" : "Upload photo"}
+                        aria-label="Upload or change profile photo"
+                      >
+                        {isUploadingAvatar ? (
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <IconCamera size={14} stroke={2.2} />
+                        )}
+                      </button>
                     </div>
-                    <p className="profile-card-email">{email}</p>
-                    <p className="profile-card-note">DevVault personal storage owner</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="outline-button profile-card-edit-btn"
-                    onClick={() => setIsEditingProfile(true)}
-                  >
-                    Edit profile
-                  </button>
-                </div>
-              ) : (
-                <form className="profile-card-edit" onSubmit={handleSaveProfile}>
-                  <div className="profile-edit-avatar-row">
-                    <div className="profile-card-avatar">
-                      <span>{initials}</span>
-                    </div>
-                    <div>
-                      <b>Avatar Preview</b>
-                      <small>Initials automatically generated from your name</small>
-                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => avatarFileInputRef.current?.click()}
+                      disabled={isUploadingAvatar || isRemovingAvatar}
+                      className="profile-avatar-hint-btn"
+                      title={userProfile?.avatar_url ? "Change profile photo" : "Upload profile photo"}
+                    >
+                      {isUploadingAvatar ? "Uploading..." : userProfile?.avatar_url ? "Change photo" : "Upload photo"}
+                    </button>
                   </div>
 
-                  <div className="profile-form-grid">
+                  {/* Middle section — User Identity */}
+                  <div className="profile-unified-identity-col">
+                    <div className="profile-unified-name-row">
+                      <h3 className="profile-unified-name">{name}</h3>
+                      <span className="profile-role-badge">{role}</span>
+                      {isAuthenticated ? (
+                        <span className="profile-status-pill synced" title="Connected to Supabase PostgreSQL">
+                          <span className="status-dot green animate-pulse" />
+                          Synced
+                        </span>
+                      ) : (
+                        <span className="profile-status-pill local" title="Operating in local browser storage">
+                          <span className="status-dot slate" />
+                          Local
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="profile-unified-email">{email}</p>
+                    <p className="profile-unified-note">
+                      {isAuthenticated
+                        ? "DevVault cloud vault owner • Supabase PostgreSQL"
+                        : "DevVault personal vault • Local browser storage"}
+                    </p>
+
+                    {/* Compact inline status feedback for upload/remove */}
+                    {avatarError && (
+                      <div className="profile-compact-feedback error" role="alert">
+                        <Icon name="info" size={13} className="shrink-0" />
+                        <span className="truncate">{avatarError}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAvatarError(null)}
+                          aria-label="Dismiss error"
+                          className="ml-auto opacity-70 hover:opacity-100"
+                        >
+                          <Icon name="x" size={12} />
+                        </button>
+                      </div>
+                    )}
+
+                    {avatarSuccess && (
+                      <div className="profile-compact-feedback success" role="status">
+                        <Icon name="check" size={13} className="shrink-0" />
+                        <span className="truncate">{avatarSuccess}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAvatarSuccess(null)}
+                          aria-label="Dismiss message"
+                          className="ml-auto opacity-70 hover:opacity-100"
+                        >
+                          <Icon name="x" size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right section — Profile Actions */}
+                  <div className="profile-unified-actions-col">
+                    <button
+                      type="button"
+                      className="outline-button profile-unified-edit-btn"
+                      onClick={() => setIsEditingProfile(true)}
+                    >
+                      <Icon name="edit" size={14} />
+                      <span>Edit Profile</span>
+                    </button>
+
+                    {userProfile?.avatar_url && (
+                      <button
+                        type="button"
+                        className="profile-unified-remove-btn"
+                        disabled={isUploadingAvatar || isRemovingAvatar}
+                        onClick={() => setShowRemoveConfirm(true)}
+                        title="Remove custom profile photo"
+                      >
+                        <Icon name="trash" size={13} />
+                        <span>Remove photo</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <form className="profile-unified-card editing" onSubmit={handleSaveProfile}>
+                  {/* Avatar thumbnail in edit mode */}
+                  <div className="profile-unified-avatar-col">
+                    <div className="profile-unified-avatar-wrapper" style={{ width: 72, height: 72 }}>
+                      {userProfile?.avatar_url ? (
+                        <img
+                          src={userProfile.avatar_url}
+                          alt={name}
+                          className="profile-unified-avatar-img"
+                        />
+                      ) : (
+                        <span className="profile-unified-avatar-initials" style={{ fontSize: 22 }}>{initials}</span>
+                      )}
+                    </div>
+                    <span className="profile-avatar-hint-text">
+                      {userProfile?.avatar_url ? "Custom photo" : "Initials"}
+                    </span>
+                  </div>
+
+                  <div className="profile-form-grid flex-1">
                     <div className="settings-field">
                       <label htmlFor="settings-name-input">Full Name</label>
                       <input
@@ -366,20 +639,20 @@ export function SettingsView({
                         placeholder="e.g. Senior Frontend Architect / Personal Vault"
                       />
                     </div>
-                  </div>
 
-                  <div className="profile-edit-actions">
-                    <button
-                      type="button"
-                      className="outline-button"
-                      onClick={handleCancelProfile}
-                    >
-                      Cancel
-                    </button>
-                    <button type="submit" className="settings-primary-btn">
-                      <Icon name="check" size={15} />
-                      Save profile
-                    </button>
+                    <div className="profile-edit-actions">
+                      <button
+                        type="button"
+                        className="outline-button"
+                        onClick={handleCancelProfile}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="settings-primary-btn">
+                        <Icon name="check" size={15} />
+                        Save changes
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}
@@ -487,7 +760,7 @@ export function SettingsView({
                 </div>
                 <button
                   className={`toggle ${theme === "dark" ? "on" : ""}`}
-                  onClick={onTheme}
+                  onClick={(e) => onTheme(e)}
                   role="switch"
                   aria-checked={theme === "dark"}
                   aria-label="Toggle dark theme"
@@ -503,38 +776,56 @@ export function SettingsView({
                   <b>Headings Typography Scale</b>
                   <small>Select the primary typographic personality for editorial titles.</small>
                 </div>
-                <div className="font-pref-cards">
+                <div className="font-pref-cards" role="radiogroup" aria-label="Headings typography scale">
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={fontPref === "newsreader"}
                     className={`font-pref-card ${fontPref === "newsreader" ? "active" : ""}`}
                     onClick={() => handleSelectFont("newsreader")}
                   >
                     <div className="font-preview font-newsreader">Newsreader</div>
                     <b>Editorial Serif</b>
                     <small>Warm literary character for deep focus and reading.</small>
-                    {fontPref === "newsreader" && <Icon name="check" size={14} className="font-check" />}
+                    {fontPref === "newsreader" && (
+                      <span className="font-check" aria-hidden="true">
+                        <Icon name="check" size={14} />
+                      </span>
+                    )}
                   </button>
 
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={fontPref === "instrument"}
                     className={`font-pref-card ${fontPref === "instrument" ? "active" : ""}`}
                     onClick={() => handleSelectFont("instrument")}
                   >
                     <div className="font-preview font-instrument">Instrument</div>
                     <b>Modern Sans</b>
                     <small>Clean, precise geometric clarity for contemporary UI.</small>
-                    {fontPref === "instrument" && <Icon name="check" size={14} className="font-check" />}
+                    {fontPref === "instrument" && (
+                      <span className="font-check" aria-hidden="true">
+                        <Icon name="check" size={14} />
+                      </span>
+                    )}
                   </button>
 
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={fontPref === "plex"}
                     className={`font-pref-card ${fontPref === "plex" ? "active" : ""}`}
                     onClick={() => handleSelectFont("plex")}
                   >
                     <div className="font-preview font-plex">IBM Plex</div>
                     <b>Technical Mono</b>
                     <small>Developer-first hacker aesthetic and code discipline.</small>
-                    {fontPref === "plex" && <Icon name="check" size={14} className="font-check" />}
+                    {fontPref === "plex" && (
+                      <span className="font-check" aria-hidden="true">
+                        <Icon name="check" size={14} />
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1034,6 +1325,68 @@ export function SettingsView({
           )}
         </div>
       </div>
+
+      {/* Avatar Crop & Preview Modal */}
+      <AvatarCropModal
+        isOpen={isCropModalOpen}
+        image={selectedImage}
+        file={selectedFile}
+        isSaving={isUploadingAvatar}
+        error={avatarError}
+        onClose={() => {
+          setIsCropModalOpen(false);
+          setSelectedImage(null);
+          setSelectedFile(null);
+          if (avatarFileInputRef.current) avatarFileInputRef.current.value = "";
+        }}
+        onSave={handleSaveCroppedAvatar}
+      />
+
+      {/* Profile Photo Removal Confirmation Toast (Modern UI/UX Toast for Phone and Desktop) */}
+      {showRemoveConfirm && (
+        <div className="vault-sync-toast vault-danger-toast" role="dialog" aria-modal="true" aria-labelledby="remove-photo-title">
+          <div className="vault-sync-toast-content">
+            <div className="vault-sync-toast-icon danger">
+              <Icon name="trash" size={17} />
+            </div>
+            <div className="vault-sync-toast-body">
+              <div className="vault-sync-toast-header">
+                <span id="remove-photo-title" className="vault-sync-toast-title">Remove profile photo?</span>
+                <button
+                  type="button"
+                  className="vault-sync-toast-close"
+                  onClick={() => setShowRemoveConfirm(false)}
+                  aria-label="Dismiss toast"
+                  title="Cancel"
+                >
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+              <p className="vault-sync-toast-text">
+                Your custom avatar will be deleted and revert to your generated initials.
+              </p>
+              <div className="vault-sync-toast-actions">
+                <button
+                  type="button"
+                  className="vault-danger-btn-primary"
+                  disabled={isRemovingAvatar}
+                  onClick={handleRemoveAvatar}
+                >
+                  {isRemovingAvatar ? "Removing..." : "Remove photo"}
+                </button>
+                <button
+                  type="button"
+                  className="vault-sync-btn-secondary"
+                  disabled={isRemovingAvatar}
+                  onClick={() => setShowRemoveConfirm(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -198,7 +198,7 @@ export function AuthModal({
           </div>
           <h2
             id="auth-modal-title"
-            className="font-serif text-2xl sm:text-[26px] font-normal text-[var(--foreground,#211d18)] dark:text-[#f4f0e8] tracking-tight mt-1"
+            className="font-serif text-2xl sm:text-[26px] font-normal text-[var(--foreground,#211d18)] dark:text-[#F5F1E9] tracking-tight mt-1"
           >
             {mode === "sign-in" && "Sign in to your vault"}
             {mode === "sign-up" && "Create your personal vault"}

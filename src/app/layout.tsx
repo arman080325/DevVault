@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f0e8",
+  themeColor: "#F5F1E9",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Synchronous theme initialization to avoid flash and ensure instant theme application */}
+        {/* Synchronous theme and appearance initialization to avoid flash and ensure instant preference application */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -44,6 +44,12 @@ export default function RootLayout({
                 } else {
                   document.documentElement.classList.remove('dark');
                   document.documentElement.classList.add('light');
+                }
+                var savedFont = localStorage.getItem('devvault-font-preference') || 'newsreader';
+                document.documentElement.setAttribute('data-font-pref', savedFont);
+                var savedDensity = localStorage.getItem('devvault-density');
+                if (savedDensity === 'compact') {
+                  document.documentElement.classList.add('compact-density');
                 }
               } catch (e) {}
             `,
