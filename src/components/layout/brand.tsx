@@ -4,6 +4,7 @@ import React from "react";
 
 interface BrandProps {
   compact?: boolean;
+  size?: number;
   className?: string;
 }
 
@@ -38,7 +39,7 @@ export function VaultEmblem({ size = 26, className = "" }: { size?: number; clas
       {/* V Monogram Vault Core Lock */}
       <path
         d="M13 13.5L16.75 20.5 20.5 13.5"
-        stroke="var(--accent, #b6503a)"
+        stroke="var(--accent, #B94F37)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -48,16 +49,17 @@ export function VaultEmblem({ size = 26, className = "" }: { size?: number; clas
         cx="13"
         cy="14"
         r="1.8"
-        fill="var(--accent, #b6503a)"
+        fill="var(--accent, #B94F37)"
       />
     </svg>
   );
 }
 
-export function Brand({ compact = false, className }: BrandProps) {
+export function Brand({ compact = false, size, className }: BrandProps) {
+  const emblemSize = size ?? (compact ? 28 : 26);
   return (
-    <div className={`brand ${className ?? ""}`} aria-label="DevVault">
-      <VaultEmblem size={24} />
+    <div className={`brand ${compact ? "brand-compact" : ""} ${className ?? ""}`} aria-label="DevVault">
+      <VaultEmblem size={emblemSize} />
       {!compact && (
         <span className="brand-wordmark">
           <span className="brand-dev">Dev</span>

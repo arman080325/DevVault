@@ -721,8 +721,10 @@ export function LibraryView({
           </div>
         </div>
 
-        {/* Advanced Filter Trigger & Popover */}
-        <div className="filter-trigger-container" ref={filterContainerRef}>
+        {/* Actions Group (Filters, Views, Sorting, Layout) - Issue 03 */}
+        <div className="library-actions">
+          {/* Advanced Filter Trigger & Popover */}
+          <div className="filter-trigger-container" ref={filterContainerRef}>
           <button
             className={`advanced-filter-trigger ${activeFilterCount > 0 ? "has-filters" : ""} ${
               isFilterOpen ? "is-open" : ""
@@ -993,7 +995,7 @@ export function LibraryView({
             )}
           </div>
 
-          <div role="group" aria-label="View toggle">
+          <div className="view-toggle-group" role="group" aria-label="View toggle">
             <button
               className={view === "grid" ? "active" : ""}
               onClick={() => setView("grid")}
@@ -1015,6 +1017,7 @@ export function LibraryView({
           </div>
         </div>
       </div>
+    </div>
 
       {/* Active Filters Bar */}
       {(activeFilterCount > 0 || query.trim().length > 0) && (
